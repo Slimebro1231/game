@@ -130,18 +130,14 @@ export class World {
     }
     
     async loadNatureAssets() {
-        // Asset types to load
+        // Asset types to load - reduced counts for performance
         const assetDefs = [
-            { name: 'tree1', path: '/models/CommonTree_1.gltf', count: 25, scale: 3.5 },
-            { name: 'tree2', path: '/models/CommonTree_2.gltf', count: 20, scale: 3.5 },
-            { name: 'tree3', path: '/models/CommonTree_3.gltf', count: 15, scale: 3.0 },
-            { name: 'pine1', path: '/models/Pine_1.gltf', count: 20, scale: 4.0 },
-            { name: 'pine2', path: '/models/Pine_2.gltf', count: 15, scale: 3.5 },
-            { name: 'rock1', path: '/models/Rock_Medium_1.gltf', count: 30, scale: 1.5 },
-            { name: 'rock2', path: '/models/Rock_Medium_2.gltf', count: 25, scale: 1.2 },
-            { name: 'rock3', path: '/models/Rock_Medium_3.gltf', count: 20, scale: 1.0 },
-            { name: 'bush1', path: '/models/Bush_Common.gltf', count: 40, scale: 2.0 },
-            { name: 'bush2', path: '/models/Bush_Common_Flowers.gltf', count: 30, scale: 2.0 },
+            { name: 'tree1', path: '/models/CommonTree_1.gltf', count: 12, scale: 3.5 },
+            { name: 'tree2', path: '/models/CommonTree_2.gltf', count: 10, scale: 3.5 },
+            { name: 'pine1', path: '/models/Pine_1.gltf', count: 10, scale: 4.0 },
+            { name: 'rock1', path: '/models/Rock_Medium_1.gltf', count: 15, scale: 1.5 },
+            { name: 'rock2', path: '/models/Rock_Medium_2.gltf', count: 12, scale: 1.2 },
+            { name: 'bush1', path: '/models/Bush_Common.gltf', count: 18, scale: 2.0 },
         ];
         
         // Load all assets

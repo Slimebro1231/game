@@ -70,7 +70,7 @@ export class Track {
     }
     
     createTrack() {
-        // Natural dirt/gravel track color
+        // Natural dirt/gravel track - single continuous mesh
         const trackMaterial = new THREE.MeshStandardMaterial({
             color: 0x6b5a48,
             roughness: 0.85,
@@ -79,34 +79,59 @@ export class Track {
         });
         
         const halfWidth = this.trackWidth / 2;
+        const pathLen = this.trackPath.length;
         
-        for (let i = 0; i < this.trackPath.length - 1; i++) {
+        // Build single continuous mesh
+        const vertices = [];
+        const indices = [];
+        
+        for (let i = 0; i < pathLen; i++) {
             const current = this.trackPath[i];
-            const next = this.trackPath[i + 1];
+            const next = this.trackPath[(i + 1) % pathLen];
+            const prev = this.trackPath[(i - 1 + pathLen) % pathLen];
             
-            const direction = new THREE.Vector3().subVectors(next, current).normalize();
+            // Average direction for smooth perpendicular
+            const dirNext = new THREE.Vector3().subVectors(next, current).normalize();
+            const dirPrev = new THREE.Vector3().subVectors(current, prev).normalize();
+            const direction = new THREE.Vector3().addVectors(dirNext, dirPrev).normalize();
+            
             const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
             
-            const p1 = current.clone().add(perpendicular.clone().multiplyScalar(halfWidth));
-            const p2 = current.clone().add(perpendicular.clone().multiplyScalar(-halfWidth));
-            const p3 = next.clone().add(perpendicular.clone().multiplyScalar(-halfWidth));
-            const p4 = next.clone().add(perpendicular.clone().multiplyScalar(halfWidth));
+            // Left and right edge vertices
+            const left = current.clone().add(perpendicular.clone().multiplyScalar(halfWidth));
+            const right = current.clone().add(perpendicular.clone().multiplyScalar(-halfWidth));
             
-            const geometry = new THREE.BufferGeometry();
-            const vertices = new Float32Array([
-                p1.x, 0.01, p1.z,
-                p2.x, 0.01, p2.z,
-                p3.x, 0.01, p3.z,
-                p4.x, 0.01, p4.z
-            ]);
-            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-            geometry.setIndex([0, 1, 2, 0, 2, 3]);
-            geometry.computeVertexNormals();
-            
-            const mesh = new THREE.Mesh(geometry, trackMaterial);
-            mesh.receiveShadow = true;
-            this.addTrackMesh(mesh);
+            vertices.push(left.x, 0.01, left.z);   // Even indices = left
+            vertices.push(right.x, 0.01, right.z); // Odd indices = right
         }
+        
+        // Create triangle indices
+        for (let i = 0; i < pathLen - 1; i++) {
+            const bl = i * 2;       // Bottom left
+            const br = i * 2 + 1;   // Bottom right
+            const tl = (i + 1) * 2; // Top left
+            const tr = (i + 1) * 2 + 1; // Top right
+            
+            indices.push(bl, br, tl);
+            indices.push(br, tr, tl);
+        }
+        
+        // Close loop if circuit
+        if (this.mapData.isLoop) {
+            const lastL = (pathLen - 1) * 2;
+            const lastR = (pathLen - 1) * 2 + 1;
+            indices.push(lastL, lastR, 0);
+            indices.push(lastR, 1, 0);
+        }
+        
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        
+        const mesh = new THREE.Mesh(geometry, trackMaterial);
+        mesh.receiveShadow = true;
+        this.addTrackMesh(mesh);
         
         // Add edge lines and curbs
         this.createEdgeLines();
@@ -114,6 +139,7 @@ export class Track {
     }
     
     createEdgeLines() {
+        // Single continuous mesh for each edge line
         const lineMaterial = new THREE.MeshStandardMaterial({
             color: 0xffffff,
             side: THREE.DoubleSide
@@ -121,37 +147,52 @@ export class Track {
         
         const halfWidth = this.trackWidth / 2;
         const lineWidth = 0.3;
+        const pathLen = this.trackPath.length;
         
         for (const side of [1, -1]) {
-            for (let i = 0; i < this.trackPath.length - 1; i++) {
+            const vertices = [];
+            const indices = [];
+            
+            for (let i = 0; i < pathLen; i++) {
                 const current = this.trackPath[i];
-                const next = this.trackPath[i + 1];
+                const next = this.trackPath[(i + 1) % pathLen];
+                const prev = this.trackPath[(i - 1 + pathLen) % pathLen];
                 
-                const direction = new THREE.Vector3().subVectors(next, current).normalize();
+                const dirNext = new THREE.Vector3().subVectors(next, current).normalize();
+                const dirPrev = new THREE.Vector3().subVectors(current, prev).normalize();
+                const direction = new THREE.Vector3().addVectors(dirNext, dirPrev).normalize();
                 const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
                 
                 const edgeOffset = halfWidth * side;
                 const innerOffset = (halfWidth - lineWidth) * side;
                 
-                const p1 = current.clone().add(perpendicular.clone().multiplyScalar(edgeOffset));
-                const p2 = current.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
-                const p3 = next.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
-                const p4 = next.clone().add(perpendicular.clone().multiplyScalar(edgeOffset));
+                const outer = current.clone().add(perpendicular.clone().multiplyScalar(edgeOffset));
+                const inner = current.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
                 
-                const geometry = new THREE.BufferGeometry();
-                const vertices = new Float32Array([
-                    p1.x, 0.02, p1.z,
-                    p2.x, 0.02, p2.z,
-                    p3.x, 0.02, p3.z,
-                    p4.x, 0.02, p4.z
-                ]);
-                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-                geometry.setIndex([0, 1, 2, 0, 2, 3]);
-                geometry.computeVertexNormals();
-                
-                const mesh = new THREE.Mesh(geometry, lineMaterial);
-                this.addTrackMesh(mesh);
+                vertices.push(outer.x, 0.02, outer.z);
+                vertices.push(inner.x, 0.02, inner.z);
             }
+            
+            for (let i = 0; i < pathLen - 1; i++) {
+                const a = i * 2, b = i * 2 + 1;
+                const c = (i + 1) * 2, d = (i + 1) * 2 + 1;
+                indices.push(a, b, c);
+                indices.push(b, d, c);
+            }
+            
+            if (this.mapData.isLoop) {
+                const last = (pathLen - 1) * 2;
+                indices.push(last, last + 1, 0);
+                indices.push(last + 1, 1, 0);
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            
+            const mesh = new THREE.Mesh(geometry, lineMaterial);
+            this.addTrackMesh(mesh);
         }
     }
     

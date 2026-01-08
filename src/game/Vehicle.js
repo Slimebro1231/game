@@ -71,26 +71,53 @@ export class Vehicle {
         lowerBody.castShadow = true;
         group.add(lowerBody);
         
-        // Cockpit canopy - curved glass look
-        const canopyShape = new THREE.Shape();
-        canopyShape.moveTo(-0.5, 0);
-        canopyShape.quadraticCurveTo(-0.5, 0.8, 0, 1);
-        canopyShape.quadraticCurveTo(0.5, 0.8, 0.5, 0);
-        canopyShape.closePath();
-        
-        const canopyGeo = new THREE.ExtrudeGeometry(canopyShape, { depth: 1.2, bevelEnabled: true, bevelThickness: 0.02 });
-        canopyGeo.rotateX(-Math.PI / 2);
-        const canopyMaterial = new THREE.MeshStandardMaterial({
-            color: 0x3d3428,
-            roughness: 0.15,
-            metalness: 0.6,
-            transparent: true,
-            opacity: 0.75
+        // Hard top roof cabin
+        const roofMaterial = new THREE.MeshStandardMaterial({
+            color: 0xf5e6d3,
+            roughness: 0.4,
+            metalness: 0.3
         });
-        const canopy = new THREE.Mesh(canopyGeo, canopyMaterial);
-        canopy.position.set(0, 0.55, -0.3);
-        canopy.castShadow = true;
-        group.add(canopy);
+        
+        // Tinted window material
+        const windowMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            roughness: 0.1,
+            metalness: 0.8,
+            transparent: true,
+            opacity: 0.85
+        });
+        
+        // Roof box
+        const roofGeo = new THREE.BoxGeometry(1.0, 0.35, 1.4);
+        const roof = new THREE.Mesh(roofGeo, roofMaterial);
+        roof.position.set(0, 0.75, -0.2);
+        roof.castShadow = true;
+        group.add(roof);
+        
+        // Front windshield (angled)
+        const windshieldGeo = new THREE.BoxGeometry(0.9, 0.4, 0.08);
+        const windshield = new THREE.Mesh(windshieldGeo, windowMaterial);
+        windshield.position.set(0, 0.6, 0.55);
+        windshield.rotation.x = 0.4;
+        group.add(windshield);
+        
+        // Rear windshield
+        const rearWindowGeo = new THREE.BoxGeometry(0.85, 0.35, 0.08);
+        const rearWindow = new THREE.Mesh(rearWindowGeo, windowMaterial);
+        rearWindow.position.set(0, 0.65, -0.95);
+        rearWindow.rotation.x = -0.3;
+        group.add(rearWindow);
+        
+        // Side windows (left)
+        const sideWindowGeo = new THREE.BoxGeometry(0.06, 0.28, 0.9);
+        const leftWindow = new THREE.Mesh(sideWindowGeo, windowMaterial);
+        leftWindow.position.set(-0.52, 0.7, -0.2);
+        group.add(leftWindow);
+        
+        // Side windows (right)
+        const rightWindow = new THREE.Mesh(sideWindowGeo, windowMaterial);
+        rightWindow.position.set(0.52, 0.7, -0.2);
+        group.add(rightWindow);
         
         // Side accent stripes (neon)
         const stripeGeo = new THREE.BoxGeometry(0.08, 0.15, 3);
@@ -139,9 +166,9 @@ export class Vehicle {
         
         const rimGeo = new THREE.TorusGeometry(0.28, 0.04, 8, 24);
         const rimMat = new THREE.MeshStandardMaterial({
-            color: 0x00ff88,
-            emissive: 0x00ff88,
-            emissiveIntensity: 0.3
+            color: 0xc4a35a,
+            roughness: 0.3,
+            metalness: 0.8
         });
         
         const wheelPositions = [
