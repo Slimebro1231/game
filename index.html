@@ -4,13 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chips Racing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #1a1a2e;
+            --bg-color: #0a0a15;
             --text-color: #ffffff;
-            --accent-color: #00ff88;
-            --accent-secondary: #004422;
-            --ui-bg: rgba(0, 0, 0, 0.5);
+            --accent: #00ff88;
+            --accent-dim: #00aa66;
+            --accent-glow: rgba(0, 255, 136, 0.3);
+            --ui-bg: rgba(10, 10, 21, 0.85);
+            --border: rgba(0, 255, 136, 0.2);
+        }
+        
+        .light-mode {
+            --bg-color: #fff5f5;
+            --text-color: #2a2a2a;
+            --accent: #ff6b9d;
+            --accent-dim: #cc5580;
+            --accent-glow: rgba(255, 107, 157, 0.3);
+            --ui-bg: rgba(255, 245, 245, 0.9);
+            --border: rgba(255, 107, 157, 0.2);
         }
         
         * {
@@ -24,7 +39,8 @@
             height: 100%;
             overflow: hidden;
             background: var(--bg-color);
-            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-family: 'Space Grotesk', -apple-system, sans-serif;
+            color: var(--text-color);
         }
         
         #game-container {
@@ -35,99 +51,131 @@
         
         canvas { display: block; }
         
+        /* Main UI */
         #ui {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            color: var(--accent-color);
-            font-size: 14px;
-            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            top: 24px;
+            left: 24px;
             pointer-events: none;
             z-index: 100;
             display: none;
         }
         
         #timer {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 42px;
+            font-weight: 500;
+            color: var(--accent);
+            text-shadow: 0 0 30px var(--accent-glow);
+            letter-spacing: -1px;
         }
         
-        #speed { font-size: 18px; opacity: 0.8; }
+        #speed {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            color: var(--text-color);
+            opacity: 0.6;
+            margin-top: 4px;
+        }
         
+        /* Leaderboard Side Panel */
         #leaderboard-side {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            color: var(--accent-color);
-            font-size: 12px;
+            top: 24px;
+            right: 24px;
             background: var(--ui-bg);
-            padding: 15px;
-            border: 1px solid rgba(0, 255, 136, 0.3);
-            border-radius: 4px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 20px 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
             pointer-events: none;
             z-index: 100;
             display: none;
+            min-width: 180px;
         }
         
         #leaderboard-side h3 {
-            margin-bottom: 10px;
-            font-size: 14px;
-            border-bottom: 1px solid rgba(0, 255, 136, 0.3);
-            padding-bottom: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
         }
         
-        #leaderboard-side ol { list-style: none; padding: 0; }
-        #leaderboard-side li { margin: 4px 0; opacity: 0.8; }
+        #leaderboard-side ol { list-style: none; }
+        #leaderboard-side li {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            margin: 6px 0;
+            opacity: 0.7;
+            display: flex;
+            justify-content: space-between;
+        }
         
+        /* Controls hint */
         #controls-hint {
             position: absolute;
-            bottom: 20px;
+            bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
             color: var(--text-color);
-            font-size: 12px;
-            opacity: 0.5;
+            opacity: 0.3;
             pointer-events: none;
             z-index: 100;
+            letter-spacing: 1px;
         }
         
-        /* Overlay screens */
+        /* Overlay Screens */
         .overlay-screen {
             display: none;
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             z-index: 200;
-            backdrop-filter: blur(8px);
-            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background: rgba(10, 10, 21, 0.6);
             justify-content: center;
             align-items: center;
             flex-direction: column;
+        }
+        
+        .light-mode .overlay-screen {
+            background: rgba(255, 245, 245, 0.6);
         }
         
         /* Track Selection */
         #track-selector {
             display: flex;
             align-items: center;
-            gap: 40px;
-            margin-bottom: 40px;
+            gap: 32px;
+            margin-bottom: 48px;
         }
         
         .track-nav {
-            font-size: 48px;
-            color: var(--accent-color);
-            opacity: 0.6;
+            font-size: 40px;
+            color: var(--accent);
+            opacity: 0.4;
             cursor: pointer;
             user-select: none;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+            font-weight: 300;
         }
         
-        .track-nav:hover { opacity: 1; transform: scale(1.2); }
+        .track-nav:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
         
         .track-cards {
-            width: 400px;
-            height: 250px;
+            width: 380px;
+            height: 260px;
             position: relative;
             overflow: hidden;
         }
@@ -137,31 +185,43 @@
             width: 100%;
             height: 100%;
             background: var(--ui-bg);
-            border: 2px solid var(--accent-color);
-            border-radius: 12px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: transform 0.4s ease-out, opacity 0.4s ease-out;
-            padding: 20px;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+            padding: 24px;
         }
         
         .track-card.active { transform: translateX(0); opacity: 1; }
-        .track-card.left { transform: translateX(-120%); opacity: 0; }
-        .track-card.right { transform: translateX(120%); opacity: 0; }
+        .track-card.left { transform: translateX(-110%); opacity: 0; }
+        .track-card.right { transform: translateX(110%); opacity: 0; }
         
         .track-card h2 {
-            color: var(--accent-color);
-            font-size: 24px;
-            margin-bottom: 15px;
-            text-shadow: 0 0 20px var(--accent-color);
+            color: var(--accent);
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            text-shadow: 0 0 30px var(--accent-glow);
+        }
+        
+        .track-description {
+            font-size: 13px;
+            opacity: 0.5;
+            margin-bottom: 16px;
         }
         
         .track-preview {
             width: 100%;
-            height: 150px;
+            height: 130px;
             position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.2);
         }
         
         .track-preview canvas {
@@ -170,98 +230,157 @@
         }
         
         .track-type {
-            margin-top: 10px;
-            font-size: 12px;
-            color: var(--text-color);
+            margin-top: 12px;
+            font-size: 11px;
+            color: var(--accent);
             opacity: 0.6;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
         
-        /* Start prompt */
+        /* Start Prompt */
         .start-prompt {
             text-align: center;
-            color: var(--accent-color);
+            color: var(--accent);
         }
         
         .key-hint {
-            font-size: 14px;
-            opacity: 0.5;
-            margin-bottom: 20px;
+            font-size: 13px;
+            opacity: 0.4;
+            margin-bottom: 24px;
+            letter-spacing: 1px;
         }
         
         .spacebar-key {
             display: inline-block;
-            background: var(--ui-bg);
-            border: 2px solid var(--accent-color);
-            border-radius: 8px;
-            padding: 15px 60px;
-            font-size: 18px;
-            font-weight: bold;
-            color: var(--accent-color);
-            animation: spacebar-pulse 1.5s ease-in-out infinite;
-            box-shadow: 0 4px 0 rgba(0, 255, 136, 0.4), 0 0 20px rgba(0, 255, 136, 0.3);
+            background: transparent;
+            border: 2px solid var(--accent);
+            border-radius: 12px;
+            padding: 16px 64px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: 3px;
+            animation: key-pulse 2s ease-in-out infinite;
+            box-shadow: 0 0 30px var(--accent-glow);
+            transition: all 0.2s ease;
         }
         
-        @keyframes spacebar-pulse {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(4px); box-shadow: 0 0 0 rgba(0, 255, 136, 0.4), 0 0 40px rgba(0, 255, 136, 0.5); }
+        .spacebar-key:hover {
+            background: var(--accent);
+            color: var(--bg-color);
         }
         
-        .spacebar-label { font-size: 14px; opacity: 0.6; margin-top: 15px; }
+        @keyframes key-pulse {
+            0%, 100% { 
+                transform: translateY(0);
+                box-shadow: 0 0 30px var(--accent-glow);
+            }
+            50% { 
+                transform: translateY(3px);
+                box-shadow: 0 0 50px var(--accent-glow);
+            }
+        }
         
-        /* Finish screen */
+        .spacebar-label {
+            font-size: 12px;
+            opacity: 0.4;
+            margin-top: 16px;
+            letter-spacing: 1px;
+        }
+        
+        /* Finish Screen */
         #finish-screen .overlay-content {
             background: var(--ui-bg);
-            border: 2px solid var(--accent-color);
-            padding: 40px 60px;
-            border-radius: 12px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            padding: 48px 64px;
+            border-radius: 24px;
             text-align: center;
-            color: var(--accent-color);
         }
         
         #finish-screen h2 {
-            font-size: 32px;
-            margin-bottom: 10px;
-            text-shadow: 0 0 20px var(--accent-color);
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 8px;
         }
         
         #final-time {
-            font-size: 56px;
-            font-weight: bold;
-            margin-bottom: 30px;
-            text-shadow: 0 0 30px var(--accent-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 64px;
+            font-weight: 500;
+            color: var(--accent);
+            text-shadow: 0 0 40px var(--accent-glow);
+            margin-bottom: 32px;
+            letter-spacing: -2px;
         }
         
-        #finish-leaderboard { margin-bottom: 30px; text-align: left; }
-        #finish-leaderboard h3 {
-            font-size: 16px;
-            margin-bottom: 15px;
-            border-bottom: 1px solid rgba(0, 255, 136, 0.3);
-            padding-bottom: 8px;
+        #finish-leaderboard {
+            margin-bottom: 32px;
+            text-align: left;
         }
-        #finish-leaderboard ol { list-style: none; padding: 0; }
+        
+        #finish-leaderboard h3 {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        #finish-leaderboard ol { list-style: none; }
         #finish-leaderboard li {
-            margin: 6px 0;
-            font-size: 14px;
-            opacity: 0.8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            margin: 8px 0;
+            opacity: 0.6;
             display: flex;
             justify-content: space-between;
-            gap: 30px;
+            gap: 32px;
         }
-        #finish-leaderboard li.current-run { color: #ffcc00; opacity: 1; font-weight: bold; }
         
+        #finish-leaderboard li.current-run {
+            color: var(--accent);
+            opacity: 1;
+            font-weight: 500;
+        }
+        
+        /* Loading */
         #loading {
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            color: var(--accent-color);
-            font-size: 18px;
+            font-size: 14px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--accent);
+            opacity: 0.6;
             z-index: 300;
+        }
+        
+        #loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
         }
     </style>
 </head>
 <body>
     <div id="game-container">
-        <div id="loading">Loading...</div>
+        <div id="loading">Loading</div>
         
         <div id="ui">
             <div id="timer">00:00.000</div>
@@ -269,40 +388,40 @@
         </div>
         
         <div id="leaderboard-side">
-            <h3>LEADERBOARD</h3>
+            <h3>Leaderboard</h3>
             <ol id="leaderboard-list"></ol>
         </div>
         
         <div id="controls-hint">
-            [W] Accelerate | [A][D] Steer | [S] Brake | [SPACE] Drift | [R] Reset
+            W accelerate / A D steer / S brake / SPACE drift / R reset
         </div>
         
         <!-- Start Screen with Track Selection -->
         <div id="start-screen" class="overlay-screen">
             <div id="track-selector">
-                <div class="track-nav" id="prev-track">&lt;</div>
+                <div class="track-nav" id="prev-track">&larr;</div>
                 <div class="track-cards" id="track-cards"></div>
-                <div class="track-nav" id="next-track">&gt;</div>
+                <div class="track-nav" id="next-track">&rarr;</div>
             </div>
             
             <div class="start-prompt">
-                <div class="key-hint">[A] / [D] to select track</div>
+                <div class="key-hint">A / D to select track</div>
                 <div class="spacebar-key">SPACE</div>
-                <div class="spacebar-label">Press to start</div>
+                <div class="spacebar-label">press to start</div>
             </div>
         </div>
         
         <!-- Finish Screen -->
         <div id="finish-screen" class="overlay-screen">
             <div class="overlay-content">
-                <h2>FINISH</h2>
+                <h2>Finish</h2>
                 <div id="final-time">00:00.000</div>
                 <div id="finish-leaderboard">
-                    <h3>LEADERBOARD</h3>
+                    <h3>Leaderboard</h3>
                     <ol id="finish-leaderboard-list"></ol>
                 </div>
                 <div class="spacebar-key">SPACE</div>
-                <div class="spacebar-label">Press to race again</div>
+                <div class="spacebar-label">race again</div>
             </div>
         </div>
     </div>

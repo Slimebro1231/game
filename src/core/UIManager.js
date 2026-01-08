@@ -71,10 +71,11 @@ export class UIManager {
             
             card.innerHTML = `
                 <h2>${map.name}</h2>
+                <div class="track-description">${map.description || ''}</div>
                 <div class="track-preview">
                     <canvas id="preview-${map.id}"></canvas>
                 </div>
-                <div class="track-type">${map.isLoop ? 'Circuit' : 'Point to Point'}</div>
+                <div class="track-type">${map.isLoop ? 'Circuit' : 'Sprint'}</div>
             `;
             
             this.trackCardsEl.appendChild(card);
@@ -119,11 +120,14 @@ export class UIManager {
             const offsetX = (canvas.width - (maxX - minX) * scale) / 2;
             const offsetZ = (canvas.height - (maxZ - minZ) * scale) / 2;
             
-            // Draw track
-            ctx.strokeStyle = '#00ff88';
-            ctx.lineWidth = 3;
+            // Draw track with map-specific color
+            const trackColor = map.color || '#00ff88';
+            ctx.strokeStyle = trackColor;
+            ctx.lineWidth = 4;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
+            ctx.shadowColor = trackColor;
+            ctx.shadowBlur = 10;
             
             ctx.beginPath();
             trackData.forEach((p, i) => {
@@ -133,6 +137,7 @@ export class UIManager {
                 else ctx.lineTo(x, y);
             });
             ctx.stroke();
+            ctx.shadowBlur = 0;
             
             // Draw start (green dot)
             const startX = (trackData[0].x - minX) * scale + offsetX;

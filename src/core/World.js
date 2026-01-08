@@ -1,6 +1,6 @@
 /**
- * World - manages the environment (ground, skybox, decorations)
- * Nature theme with grass, trees, and natural elements
+ * World - Stylized racing environment with clean aesthetic
+ * Inspired by modern minimalist design
  */
 
 import * as THREE from 'three';
@@ -11,170 +11,216 @@ export class World {
         this.scene = game.scene;
         
         this.isDark = true;
+        this.time = 0;
         
         this.createGround();
-        this.createEnvironment();
+        this.createGrid();
+        this.createAtmosphere();
+        this.createAmbientParticles();
     }
     
     createGround() {
-        // Large grass ground plane
-        const groundGeometry = new THREE.PlaneGeometry(500, 500, 50, 50);
+        // Large ground plane with subtle gradient effect via vertex colors
+        const groundGeometry = new THREE.PlaneGeometry(600, 600, 100, 100);
         
-        // Add slight height variation for natural feel
+        // Add vertex colors for radial gradient effect
+        const colors = [];
         const positions = groundGeometry.attributes.position.array;
+        
         for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 1] += (Math.random() - 0.5) * 0.3;
+            const x = positions[i];
+            const z = positions[i + 1]; // y in plane coords before rotation
+            const dist = Math.sqrt(x * x + z * z);
+            
+            // Gradient from center to edges
+            const t = Math.min(dist / 300, 1);
+            
+            // Dark theme: deep purple to darker purple
+            const r = 0.08 + t * 0.02;
+            const g = 0.08 + t * 0.01;
+            const b = 0.15 + t * 0.05;
+            
+            colors.push(r, g, b);
         }
-        groundGeometry.computeVertexNormals();
+        
+        groundGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         
         this.groundMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2d5a27, // Grass green
-            roughness: 0.9,
-            metalness: 0.0
+            vertexColors: true,
+            roughness: 0.95,
+            metalness: 0.05,
+            side: THREE.DoubleSide
         });
         
         this.ground = new THREE.Mesh(groundGeometry, this.groundMaterial);
         this.ground.rotation.x = -Math.PI / 2;
-        this.ground.position.y = -0.1;
+        this.ground.position.y = -0.05;
         this.ground.receiveShadow = true;
         this.scene.add(this.ground);
     }
     
-    createEnvironment() {
-        this.createTrees();
-        this.createRocks();
-        this.createGrassPatches();
+    createGrid() {
+        // Subtle grid lines for visual interest
+        const gridSize = 400;
+        const gridDivisions = 40;
+        
+        this.gridHelper = new THREE.GridHelper(
+            gridSize, 
+            gridDivisions, 
+            0x00ff88, // Center line color
+            0x1a1a2e  // Grid color (subtle)
+        );
+        this.gridHelper.position.y = 0.01;
+        this.gridHelper.material.opacity = 0.15;
+        this.gridHelper.material.transparent = true;
+        this.scene.add(this.gridHelper);
+        
+        // Secondary finer grid
+        this.fineGrid = new THREE.GridHelper(
+            gridSize,
+            gridDivisions * 4,
+            0x00ff88,
+            0x222244
+        );
+        this.fineGrid.position.y = 0.005;
+        this.fineGrid.material.opacity = 0.05;
+        this.fineGrid.material.transparent = true;
+        this.scene.add(this.fineGrid);
     }
     
-    createTrees() {
-        // Simple low-poly trees
-        this.trees = [];
-        
-        const treePositions = [];
-        // Generate random positions away from track
-        for (let i = 0; i < 40; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 55 + Math.random() * 40; // Outside track area
-            treePositions.push([
-                Math.cos(angle) * dist,
-                0,
-                Math.sin(angle) * dist
-            ]);
-        }
-        
-        treePositions.forEach(pos => {
-            const tree = this.createTree();
-            tree.position.set(pos[0], 0, pos[2]);
-            tree.rotation.y = Math.random() * Math.PI * 2;
-            tree.scale.setScalar(0.8 + Math.random() * 0.6);
-            this.scene.add(tree);
-            this.trees.push(tree);
+    createAtmosphere() {
+        // Ambient glow spheres at far corners
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff88,
+            transparent: true,
+            opacity: 0.03
         });
+        
+        const glowPositions = [
+            [150, 20, 150],
+            [-150, 20, 150],
+            [150, 20, -150],
+            [-150, 20, -150],
+        ];
+        
+        this.glowSpheres = [];
+        glowPositions.forEach(pos => {
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(40, 16, 16),
+                glowMaterial.clone()
+            );
+            sphere.position.set(pos[0], pos[1], pos[2]);
+            this.scene.add(sphere);
+            this.glowSpheres.push(sphere);
+        });
+        
+        // Horizon glow ring
+        const ringGeometry = new THREE.TorusGeometry(250, 2, 8, 64);
+        this.horizonRing = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({
+            color: 0x00ff88,
+            transparent: true,
+            opacity: 0.1
+        }));
+        this.horizonRing.rotation.x = Math.PI / 2;
+        this.horizonRing.position.y = 0.5;
+        this.scene.add(this.horizonRing);
     }
     
-    createTree() {
-        const group = new THREE.Group();
+    createAmbientParticles() {
+        // Floating particles for atmosphere
+        const particleCount = 200;
+        const positions = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
         
-        // Trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 3, 6);
-        const trunkMaterial = new THREE.MeshStandardMaterial({
-            color: 0x4a3728,
-            roughness: 0.9
-        });
-        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = 1.5;
-        trunk.castShadow = true;
-        group.add(trunk);
-        
-        // Foliage (cone shape)
-        const foliageGeometry = new THREE.ConeGeometry(2, 5, 6);
-        this.foliageMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a472a,
-            roughness: 0.8
-        });
-        const foliage = new THREE.Mesh(foliageGeometry, this.foliageMaterial);
-        foliage.position.y = 5;
-        foliage.castShadow = true;
-        group.add(foliage);
-        
-        return group;
-    }
-    
-    createRocks() {
-        // Simple low-poly rocks
-        const rockPositions = [];
-        for (let i = 0; i < 20; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 50 + Math.random() * 50;
-            rockPositions.push([
-                Math.cos(angle) * dist,
-                0,
-                Math.sin(angle) * dist
-            ]);
-        }
-        
-        this.rockMaterial = new THREE.MeshStandardMaterial({
-            color: 0x666666,
-            roughness: 0.9,
-            metalness: 0.1
-        });
-        
-        rockPositions.forEach(pos => {
-            const rockGeometry = new THREE.DodecahedronGeometry(0.5 + Math.random() * 1.5, 0);
-            const rock = new THREE.Mesh(rockGeometry, this.rockMaterial);
-            rock.position.set(pos[0], 0.3, pos[2]);
-            rock.rotation.set(Math.random(), Math.random(), Math.random());
-            rock.scale.y = 0.5 + Math.random() * 0.5;
-            rock.castShadow = true;
-            rock.receiveShadow = true;
-            this.scene.add(rock);
-        });
-    }
-    
-    createGrassPatches() {
-        // Small grass tufts for detail
-        const grassGeometry = new THREE.ConeGeometry(0.1, 0.5, 4);
-        this.grassMaterial = new THREE.MeshStandardMaterial({
-            color: 0x3d7a35,
-            roughness: 0.9
-        });
-        
-        for (let i = 0; i < 100; i++) {
-            const x = (Math.random() - 0.5) * 150;
-            const z = (Math.random() - 0.5) * 150;
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 300;
+            positions[i * 3 + 1] = Math.random() * 50 + 5;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 300;
             
-            // Skip if too close to track center
-            const distFromCenter = Math.sqrt(x * x + z * z);
-            if (distFromCenter < 50) continue;
-            
-            const grass = new THREE.Mesh(grassGeometry, this.grassMaterial);
-            grass.position.set(x, 0.25, z);
-            grass.castShadow = true;
-            this.scene.add(grass);
+            // Green-cyan color variation
+            colors[i * 3] = 0;
+            colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
+            colors[i * 3 + 2] = 0.5 + Math.random() * 0.3;
         }
+        
+        const particleGeometry = new THREE.BufferGeometry();
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        
+        const particleMaterial = new THREE.PointsMaterial({
+            size: 0.5,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+        
+        this.particles = new THREE.Points(particleGeometry, particleMaterial);
+        this.scene.add(this.particles);
+        
+        this.particlePositions = positions;
     }
     
     updateTheme(isDark) {
         this.isDark = isDark;
         
         if (isDark) {
-            // Dark theme - night colors
-            this.scene.background = new THREE.Color(0x1a1a2e);
-            this.scene.fog = new THREE.Fog(0x1a1a2e, 50, 200);
-            this.groundMaterial.color.setHex(0x1a3318);
-            if (this.foliageMaterial) this.foliageMaterial.color.setHex(0x0d2818);
-            if (this.grassMaterial) this.grassMaterial.color.setHex(0x1a3318);
+            // Dark theme - deep space feel
+            this.scene.background = new THREE.Color(0x0a0a15);
+            this.scene.fog = new THREE.Fog(0x0a0a15, 80, 300);
+            
+            this.gridHelper.material.opacity = 0.15;
+            this.fineGrid.material.opacity = 0.05;
+            
+            this.glowSpheres.forEach(s => {
+                s.material.color.setHex(0x00ff88);
+                s.material.opacity = 0.03;
+            });
+            this.horizonRing.material.color.setHex(0x00ff88);
+            this.horizonRing.material.opacity = 0.1;
+            
         } else {
-            // Light theme - day colors
-            this.scene.background = new THREE.Color(0x87ceeb); // Sky blue
-            this.scene.fog = new THREE.Fog(0x87ceeb, 80, 250);
-            this.groundMaterial.color.setHex(0x4a8c3f);
-            if (this.foliageMaterial) this.foliageMaterial.color.setHex(0x2d6b2d);
-            if (this.grassMaterial) this.grassMaterial.color.setHex(0x5aa550);
+            // Light theme - clean white/pink aesthetic
+            this.scene.background = new THREE.Color(0xfff5f5);
+            this.scene.fog = new THREE.Fog(0xfff5f5, 100, 350);
+            
+            this.gridHelper.material.opacity = 0.1;
+            this.gridHelper.material.color.setHex(0xff6b9d);
+            this.fineGrid.material.opacity = 0.03;
+            this.fineGrid.material.color.setHex(0xff6b9d);
+            
+            this.glowSpheres.forEach(s => {
+                s.material.color.setHex(0xff6b9d);
+                s.material.opacity = 0.02;
+            });
+            this.horizonRing.material.color.setHex(0xff6b9d);
+            this.horizonRing.material.opacity = 0.08;
         }
     }
     
     update(delta) {
-        // Could animate trees swaying, etc.
+        this.time += delta;
+        
+        // Animate particles slowly floating
+        if (this.particles && this.particlePositions) {
+            const positions = this.particles.geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i + 1] += Math.sin(this.time + i) * 0.01;
+                
+                // Wrap around
+                if (positions[i + 1] > 55) positions[i + 1] = 5;
+                if (positions[i + 1] < 5) positions[i + 1] = 55;
+            }
+            this.particles.geometry.attributes.position.needsUpdate = true;
+        }
+        
+        // Pulse glow spheres
+        this.glowSpheres.forEach((sphere, i) => {
+            const pulse = Math.sin(this.time * 0.5 + i) * 0.01 + 0.03;
+            sphere.material.opacity = this.isDark ? pulse : pulse * 0.5;
+        });
+        
+        // Rotate horizon ring slowly
+        this.horizonRing.rotation.z += delta * 0.02;
     }
 }

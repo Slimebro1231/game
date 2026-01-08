@@ -40,7 +40,7 @@ export class Game {
         
         // Initialize game objects
         this.world = new World(this);
-        this.currentMapId = 'test-short'; // Default map
+        this.currentMapId = 'monaco'; // Default map
         
         // Create vehicle first (with default position)
         this.vehicle = new Vehicle(this);
@@ -206,6 +206,11 @@ export class Game {
         // Update camera
         this.updateCameraPosition();
         
+        // Update world (particles, atmosphere)
+        if (this.world) {
+            this.world.update(delta);
+        }
+        
         // Update ghosts
         this.ghostManager.update(this.raceTime);
         
@@ -234,17 +239,21 @@ export class Game {
             Math.pow(vehiclePos.z - startPos.z, 2)
         );
         
-        const finishRadius = 10;
+        const finishRadius = 8;
+        const minRaceTimeMs = 5000; // Minimum 5 seconds to complete
+        const minDistanceFromStart = 40; // Must travel at least 40 units
         
-        // For point-to-point: must be far from start OR have enough race time
-        if (!this.hasLeftStart && (distFromStart > 30 || this.raceTime > 3000)) {
-            this.hasLeftStart = true;
+        // For point-to-point: must be far from start AND have minimum race time
+        if (!this.hasLeftStart) {
+            if (distFromStart > minDistanceFromStart && this.raceTime > 2000) {
+                this.hasLeftStart = true;
+            }
         }
         
         // Check if reached finish line
         if (this.hasLeftStart && distToFinish < finishRadius) {
             // Minimum race time to prevent exploits
-            if (this.raceTime > 3000) {
+            if (this.raceTime > minRaceTimeMs) {
                 this.finishRace();
             }
         }
