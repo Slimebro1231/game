@@ -1,6 +1,6 @@
 /**
- * World - Stylized racing environment with clean aesthetic
- * Inspired by modern minimalist design
+ * World - Stylized racing environment with cyberpunk aesthetic
+ * Features: Black hole vortex, grid, particles, glow effects
  */
 
 import * as THREE from 'three';
@@ -15,6 +15,7 @@ export class World {
         
         this.createGround();
         this.createGrid();
+        this.createVortex();
         this.createAtmosphere();
         this.createAmbientParticles();
     }
@@ -86,6 +87,127 @@ export class World {
         this.fineGrid.material.opacity = 0.05;
         this.fineGrid.material.transparent = true;
         this.scene.add(this.fineGrid);
+    }
+    
+    createVortex() {
+        // Cyberpunk black hole / vortex effect in the sky
+        const vortexVertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+        
+        const vortexFragmentShader = `
+            uniform float time;
+            uniform vec3 color1;
+            uniform vec3 color2;
+            uniform float isDark;
+            varying vec2 vUv;
+            
+            #define PI 3.14159265359
+            
+            // Noise function
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+            
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+            
+            void main() {
+                vec2 uv = vUv - 0.5;
+                float dist = length(uv);
+                float angle = atan(uv.y, uv.x);
+                
+                // Swirl effect
+                float swirl = angle + dist * 8.0 - time * 0.3;
+                float spiral = sin(swirl * 6.0) * 0.5 + 0.5;
+                
+                // Radial rings
+                float rings = sin(dist * 30.0 - time * 2.0) * 0.5 + 0.5;
+                rings *= smoothstep(0.5, 0.1, dist);
+                
+                // Noise distortion
+                float n = noise(uv * 10.0 + time * 0.5);
+                
+                // Black hole center
+                float hole = smoothstep(0.02, 0.08, dist);
+                
+                // Event horizon glow
+                float horizon = smoothstep(0.15, 0.05, dist) * smoothstep(0.0, 0.05, dist);
+                
+                // Combine effects
+                float pattern = spiral * rings * hole;
+                pattern += horizon * 2.0;
+                pattern *= smoothstep(0.5, 0.2, dist);
+                pattern += n * 0.1 * smoothstep(0.4, 0.1, dist);
+                
+                // Glitch lines (occasional)
+                float glitch = step(0.98, sin(time * 20.0 + uv.y * 100.0));
+                pattern += glitch * 0.3 * step(0.5, sin(time * 3.0));
+                
+                // Color mixing
+                vec3 col = mix(color1, color2, pattern);
+                col += horizon * color2 * 3.0;
+                
+                // Fade at edges
+                float alpha = smoothstep(0.5, 0.3, dist) * 0.6 * isDark;
+                
+                gl_FragColor = vec4(col, alpha * pattern);
+            }
+        `;
+        
+        this.vortexMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                color1: { value: new THREE.Color(0x0a0a15) },
+                color2: { value: new THREE.Color(0x00ff88) },
+                isDark: { value: 1.0 }
+            },
+            vertexShader: vortexVertexShader,
+            fragmentShader: vortexFragmentShader,
+            transparent: true,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        
+        // Large plane in the sky
+        const vortexGeometry = new THREE.PlaneGeometry(400, 400);
+        this.vortex = new THREE.Mesh(vortexGeometry, this.vortexMaterial);
+        this.vortex.position.set(0, 80, 0);
+        this.vortex.rotation.x = -Math.PI / 2;
+        this.scene.add(this.vortex);
+        
+        // Secondary smaller vortex rings
+        for (let i = 0; i < 3; i++) {
+            const ringGeometry = new THREE.RingGeometry(50 + i * 30, 55 + i * 30, 64);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff88,
+                transparent: true,
+                opacity: 0.05 - i * 0.01,
+                side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.set(0, 75 - i * 5, 0);
+            ring.rotation.x = -Math.PI / 2;
+            ring.userData.rotationSpeed = 0.1 + i * 0.05;
+            ring.userData.ringIndex = i;
+            this.scene.add(ring);
+            if (!this.vortexRings) this.vortexRings = [];
+            this.vortexRings.push(ring);
+        }
     }
     
     createAtmosphere() {
@@ -179,6 +301,16 @@ export class World {
             this.horizonRing.material.color.setHex(0x00ff88);
             this.horizonRing.material.opacity = 0.1;
             
+            // Vortex colors for dark theme
+            if (this.vortexMaterial) {
+                this.vortexMaterial.uniforms.color1.value.setHex(0x0a0a15);
+                this.vortexMaterial.uniforms.color2.value.setHex(0x00ff88);
+                this.vortexMaterial.uniforms.isDark.value = 1.0;
+            }
+            if (this.vortexRings) {
+                this.vortexRings.forEach(r => r.material.color.setHex(0x00ff88));
+            }
+            
         } else {
             // Light theme - clean white/pink aesthetic
             this.scene.background = new THREE.Color(0xfff5f5);
@@ -195,11 +327,33 @@ export class World {
             });
             this.horizonRing.material.color.setHex(0xff6b9d);
             this.horizonRing.material.opacity = 0.08;
+            
+            // Vortex colors for light theme (subtle pink)
+            if (this.vortexMaterial) {
+                this.vortexMaterial.uniforms.color1.value.setHex(0xfff5f5);
+                this.vortexMaterial.uniforms.color2.value.setHex(0xff6b9d);
+                this.vortexMaterial.uniforms.isDark.value = 0.4;
+            }
+            if (this.vortexRings) {
+                this.vortexRings.forEach(r => r.material.color.setHex(0xff6b9d));
+            }
         }
     }
     
     update(delta) {
         this.time += delta;
+        
+        // Animate vortex shader
+        if (this.vortexMaterial) {
+            this.vortexMaterial.uniforms.time.value = this.time;
+        }
+        
+        // Rotate vortex rings
+        if (this.vortexRings) {
+            this.vortexRings.forEach((ring, i) => {
+                ring.rotation.z += delta * ring.userData.rotationSpeed * (i % 2 === 0 ? 1 : -1);
+            });
+        }
         
         // Animate particles slowly floating
         if (this.particles && this.particlePositions) {
