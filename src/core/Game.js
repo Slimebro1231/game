@@ -335,20 +335,15 @@ export class Game {
     }
     
     switchMap(mapId) {
-        if (mapId === this.currentMapId) return;
+        if (mapId === this.currentMapId && this.track) return;
         
         console.log('Switching to map:', mapId);
         this.currentMapId = mapId;
         
-        // Remove old track
-        this.track.trackPieces.forEach(piece => this.scene.remove(piece));
-        
-        // Clear scene of track-related objects (keep world, vehicle, lights)
-        const toRemove = [];
-        this.scene.traverse(obj => {
-            if (obj.userData.isTrack) toRemove.push(obj);
-        });
-        toRemove.forEach(obj => this.scene.remove(obj));
+        // Destroy old track properly
+        if (this.track) {
+            this.track.destroy();
+        }
         
         // Create new track
         this.track = new Track(this, mapId);

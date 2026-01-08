@@ -20,11 +20,14 @@ function initTheme() {
         isDark = dark;
         if (dark) {
             root.classList.remove('light-mode');
-            themeToggle.textContent = 'LIGHT MODE';
         } else {
             root.classList.add('light-mode');
-            themeToggle.textContent = 'DARK MODE';
         }
+        
+        if (themeToggle) {
+            themeToggle.textContent = dark ? 'LIGHT MODE' : 'DARK MODE';
+        }
+        
         localStorage.setItem('chips-theme', dark ? 'dark' : 'light');
         
         // Notify game to update colors
@@ -36,10 +39,12 @@ function initTheme() {
     // Initial theme
     setTheme(isDark);
     
-    // Toggle on click
-    themeToggle.addEventListener('click', () => {
-        setTheme(!isDark);
-    });
+    // Toggle on click (only if button exists)
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            setTheme(!isDark);
+        });
+    }
     
     // Listen for system preference changes
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
@@ -50,7 +55,9 @@ function initTheme() {
 }
 
 // Initialize game when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+function initGame() {
+    console.log('Initializing game...');
+    
     // Init theme first
     initTheme();
     
@@ -62,5 +69,19 @@ document.addEventListener('DOMContentLoaded', () => {
     window.chipsGame = game;
     
     // Hide loading screen
-    document.getElementById('loading').style.display = 'none';
-});
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+        loadingEl.style.display = 'none';
+        console.log('Loading screen hidden');
+    }
+    
+    console.log('Game initialized');
+}
+
+// Check if DOM is already loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGame);
+} else {
+    // DOM already loaded, run immediately
+    initGame();
+}

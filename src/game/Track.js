@@ -14,7 +14,7 @@ export class Track {
         this.mapData = MAPS[mapId] || MAPS['test-short'];
         
         this.trackWidth = 10;
-        this.trackPieces = [];
+        this.trackPieces = []; // All track meshes for cleanup
         
         // Generate spline from control points
         this.generateSpline();
@@ -22,6 +22,29 @@ export class Track {
         // Create track visuals
         this.createTrack();
         this.createStartFinish();
+    }
+    
+    // Add mesh and track it for cleanup
+    addTrackMesh(mesh) {
+        mesh.userData.isTrack = true;
+        this.scene.add(mesh);
+        this.trackPieces.push(mesh);
+    }
+    
+    // Cleanup all track meshes
+    destroy() {
+        for (const mesh of this.trackPieces) {
+            this.scene.remove(mesh);
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach(m => m.dispose());
+                } else {
+                    mesh.material.dispose();
+                }
+            }
+        }
+        this.trackPieces = [];
     }
     
     generateSpline() {
@@ -81,8 +104,7 @@ export class Track {
             
             const mesh = new THREE.Mesh(geometry, trackMaterial);
             mesh.receiveShadow = true;
-            this.scene.add(mesh);
-            this.trackPieces.push(mesh);
+            this.addTrackMesh(mesh);
         }
         
         // Add edge lines and curbs
@@ -127,7 +149,7 @@ export class Track {
                 geometry.computeVertexNormals();
                 
                 const mesh = new THREE.Mesh(geometry, lineMaterial);
-                this.scene.add(mesh);
+                this.addTrackMesh(mesh);
             }
         }
     }
@@ -169,7 +191,7 @@ export class Track {
                 geometry.computeVertexNormals();
                 
                 const mesh = new THREE.Mesh(geometry, material);
-                this.scene.add(mesh);
+                this.addTrackMesh(mesh);
             }
         }
     }
@@ -217,7 +239,7 @@ export class Track {
         mesh.rotation.x = -Math.PI / 2;
         mesh.rotation.z = Math.atan2(perpendicular.x, perpendicular.z);
         
-        this.scene.add(mesh);
+        this.addTrackMesh(mesh);
     }
     
     createCheckeredLine(position, direction) {
@@ -245,7 +267,7 @@ export class Track {
                 square.position.y = 0.03;
                 square.rotation.x = -Math.PI / 2;
                 
-                this.scene.add(square);
+                this.addTrackMesh(square);
             }
         }
     }

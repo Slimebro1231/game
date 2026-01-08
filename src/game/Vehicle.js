@@ -20,8 +20,9 @@ export class Vehicle {
         this.steering = 0;
         this.maxSteering = Math.PI / 4;
         
-        // Handbrake
-        this.handbrakeMultiplier = 0.7;
+        // Handbrake/Drift
+        this.handbrakeMultiplier = 2.0; // Turn faster during drift
+        this.driftGrip = 0.3; // Reduced lateral grip during drift
         this.isHandbraking = false;
         
         // Start position - will be set by track after initialization
@@ -179,12 +180,13 @@ export class Vehicle {
         
         // Handbrake/Space (for drifting)
         this.isHandbraking = input.handbrake;
-        if (this.isHandbraking) {
-            // Reduce grip, allow drifting
+        if (this.isHandbraking && Math.abs(currentSpeed) > 5) {
+            // Dramatically reduce lateral grip - allow car to slide sideways
             const lateralVel = right.clone().multiplyScalar(this.velocity.dot(right));
-            this.velocity.sub(lateralVel.multiplyScalar(0.05));
-            // Slow down slightly
-            this.velocity.multiplyScalar(0.97);
+            // Only remove a small amount of lateral velocity = more slide
+            this.velocity.sub(lateralVel.multiplyScalar(this.driftGrip));
+            // Slight speed reduction during drift
+            this.velocity.multiplyScalar(0.985);
         }
         
         // Steering with A/D (always responsive)
@@ -227,11 +229,10 @@ export class Vehicle {
         }
         this.velocity.multiplyScalar(Math.pow(frictionMultiplier, delta * 60));
         
-        // Lateral friction (prevent sliding sideways)
-        if (!this.isHandbraking) {
-            const lateralVel = right.clone().multiplyScalar(this.velocity.dot(right));
-            this.velocity.sub(lateralVel.multiplyScalar(0.1));
-        }
+        // Lateral friction (prevent sliding sideways - or allow it during drift)
+        const lateralVel = right.clone().multiplyScalar(this.velocity.dot(right));
+        const lateralFriction = this.isHandbraking ? 0.02 : 0.15; // Much less grip when drifting
+        this.velocity.sub(lateralVel.multiplyScalar(lateralFriction));
         
         // Update position
         this.mesh.position.add(this.velocity.clone().multiplyScalar(delta));
