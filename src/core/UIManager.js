@@ -2,7 +2,7 @@
  * UIManager - handles UI including track selection
  */
 
-import { Track } from '../game/Track.js';
+import { getAvailableMaps } from '../game/MapData.js';
 
 export class UIManager {
     constructor(game) {
@@ -23,7 +23,7 @@ export class UIManager {
         this.trackCardsEl = document.getElementById('track-cards');
         
         // Track selection state
-        this.availableMaps = Track.getAvailableMaps();
+        this.availableMaps = getAvailableMaps();
         this.selectedMapIndex = 0;
         
         this.setupEventListeners();
@@ -157,31 +157,9 @@ export class UIManager {
     }
     
     getMapData(mapId) {
-        // Simplified track data for preview
-        const maps = {
-            'test-short': [
-                { x: 0, z: 0 }, { x: 20, z: 5 }, { x: 40, z: -5 },
-                { x: 60, z: 0 }, { x: 80, z: 10 }, { x: 100, z: 0 }
-            ],
-            'oval': [
-                { x: 0, z: 30 }, { x: 30, z: 40 }, { x: 50, z: 20 },
-                { x: 40, z: -10 }, { x: 10, z: -20 }, { x: -30, z: -10 },
-                { x: -45, z: 15 }, { x: -30, z: 35 }, { x: 0, z: 30 }
-            ],
-            'random-spline': this.generateRandomPreview()
-        };
-        return maps[mapId];
-    }
-    
-    generateRandomPreview() {
-        const points = [];
-        let x = 0, z = 0;
-        for (let i = 0; i < 8; i++) {
-            points.push({ x, z });
-            x += 15 + Math.random() * 20;
-            z += (Math.random() - 0.5) * 30;
-        }
-        return points;
+        // Use map data from the map definition
+        const map = this.availableMaps.find(m => m.id === mapId);
+        return map?.controlPoints || [];
     }
     
     updateTrackCards() {

@@ -4,60 +4,7 @@
  */
 
 import * as THREE from 'three';
-
-// Map definitions - each map has control points for spline
-const MAPS = {
-    'test-short': {
-        name: 'Test Track',
-        // Simple short straight-ish track for testing
-        controlPoints: [
-            { x: 0, z: 0 },      // Start
-            { x: 20, z: 5 },
-            { x: 40, z: -5 },
-            { x: 60, z: 0 },
-            { x: 80, z: 10 },
-            { x: 100, z: 0 },    // Finish
-        ],
-        isLoop: false
-    },
-    'oval': {
-        name: 'Oval Circuit',
-        controlPoints: [
-            { x: 0, z: 30 },
-            { x: 30, z: 40 },
-            { x: 50, z: 20 },
-            { x: 40, z: -10 },
-            { x: 10, z: -20 },
-            { x: -30, z: -10 },
-            { x: -45, z: 15 },
-            { x: -30, z: 35 },
-            { x: 0, z: 30 },     // Back to start for loop
-        ],
-        isLoop: true
-    },
-    'random-spline': {
-        name: 'Random Circuit',
-        controlPoints: generateRandomSpline(),
-        isLoop: false
-    }
-};
-
-function generateRandomSpline() {
-    const points = [];
-    const numPoints = 8;
-    let x = 0, z = 0;
-    
-    for (let i = 0; i < numPoints; i++) {
-        points.push({ x, z });
-        // Random direction change
-        const angle = (Math.random() - 0.3) * Math.PI * 0.5; // Bias forward
-        const dist = 20 + Math.random() * 30;
-        x += Math.cos(angle) * dist + dist * 0.8; // Mostly forward
-        z += Math.sin(angle) * dist;
-    }
-    
-    return points;
-}
+import { MAPS, getAvailableMaps } from './MapData.js';
 
 export class Track {
     constructor(game, mapId = 'test-short') {
@@ -310,10 +257,6 @@ export class Track {
     
     // Static method to get available maps
     static getAvailableMaps() {
-        return Object.keys(MAPS).map(id => ({
-            id,
-            name: MAPS[id].name,
-            isLoop: MAPS[id].isLoop
-        }));
+        return getAvailableMaps();
     }
 }
