@@ -305,6 +305,90 @@
             letter-spacing: 1px;
         }
         
+        /* Name Input Screen */
+        #name-screen .overlay-content,
+        #finish-screen .overlay-content {
+            background: var(--ui-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            padding: 48px 64px;
+            border-radius: 24px;
+            text-align: center;
+        }
+        
+        .final-time-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 48px;
+            font-weight: 500;
+            color: var(--accent);
+            text-shadow: 0 0 40px var(--accent-glow);
+            margin-bottom: 16px;
+            letter-spacing: -2px;
+        }
+        
+        #run-status {
+            font-size: 14px;
+            color: var(--accent);
+            margin-bottom: 24px;
+            opacity: 0.8;
+        }
+        
+        .name-input-container {
+            margin-bottom: 24px;
+        }
+        
+        .name-input-container label {
+            display: block;
+            font-size: 12px;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            margin-bottom: 12px;
+        }
+        
+        #player-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            padding: 12px 24px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--text-color);
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s ease;
+            width: 200px;
+        }
+        
+        #player-name:focus {
+            border-color: var(--accent);
+        }
+        
+        .submit-btn {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 14px 40px;
+            background: var(--accent);
+            color: var(--bg-color);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+        
+        .skip-hint {
+            font-size: 11px;
+            opacity: 0.3;
+            margin-top: 16px;
+        }
+        
         /* Finish Screen */
         #finish-screen .overlay-content {
             background: var(--ui-bg);
@@ -429,13 +513,28 @@
             </div>
         </div>
         
-        <!-- Finish Screen -->
+        <!-- Name Input Screen (shows after finish) -->
+        <div id="name-screen" class="overlay-screen">
+            <div class="overlay-content">
+                <h2>Run Complete!</h2>
+                <div id="run-time" class="final-time-display">00:00.000</div>
+                <div id="run-status"></div>
+                <div class="name-input-container">
+                    <label for="player-name">Enter your name:</label>
+                    <input type="text" id="player-name" maxlength="16" placeholder="Player" autocomplete="off">
+                </div>
+                <button id="submit-run" class="submit-btn">Submit Score</button>
+                <div class="skip-hint">or press ESC to skip</div>
+            </div>
+        </div>
+        
+        <!-- Finish Screen (shows global leaderboard) -->
         <div id="finish-screen" class="overlay-screen">
             <div class="overlay-content">
-                <h2>Finish</h2>
-                <div id="final-time">00:00.000</div>
+                <h2>Leaderboard</h2>
+                <div id="final-time" class="final-time-display">00:00.000</div>
                 <div id="finish-leaderboard">
-                    <h3>Leaderboard</h3>
+                    <h3>Global Rankings</h3>
                     <ol id="finish-leaderboard-list"></ol>
                 </div>
                 <div class="spacebar-key">SPACE</div>

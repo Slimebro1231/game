@@ -16,8 +16,13 @@ export class UIManager {
         this.leaderboardListEl = document.getElementById('leaderboard-list');
         
         this.startScreen = document.getElementById('start-screen');
+        this.nameScreen = document.getElementById('name-screen');
         this.finishScreen = document.getElementById('finish-screen');
         this.finalTimeEl = document.getElementById('final-time');
+        this.runTimeEl = document.getElementById('run-time');
+        this.runStatusEl = document.getElementById('run-status');
+        this.playerNameInput = document.getElementById('player-name');
+        this.submitRunBtn = document.getElementById('submit-run');
         this.finishLeaderboardList = document.getElementById('finish-leaderboard-list');
         
         this.trackCardsEl = document.getElementById('track-cards');
@@ -26,27 +31,42 @@ export class UIManager {
         this.availableMaps = getAvailableMaps();
         this.selectedMapIndex = 0;
         
+        // Pending run data
+        this.pendingRun = null;
+        
+        // Load saved player name
+        this.savedPlayerName = localStorage.getItem('chips-player-name') || '';
+        if (this.playerNameInput) {
+            this.playerNameInput.value = this.savedPlayerName;
+        }
+        
         this.setupEventListeners();
         this.createTrackCards();
     }
     
     setupEventListeners() {
-        // Space to start/restart (track selection disabled temporarily)
+        // Keyboard events
         document.addEventListener('keydown', (e) => {
+            // Start screen
             if (this.startScreen.style.display === 'flex') {
-                // Track selection disabled - just space to start
-                // if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
-                //     this.prevTrack();
-                // } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
-                //     this.nextTrack();
-                // }
                 if (e.code === 'Space') {
                     e.preventDefault();
                     this.hideStartScreen();
-                    // Use default map 'main' instead of selection
                     this.game.startRace();
                 }
-            } else if (this.finishScreen.style.display === 'flex') {
+            }
+            // Name input screen
+            else if (this.nameScreen.style.display === 'flex') {
+                if (e.code === 'Escape') {
+                    e.preventDefault();
+                    this.skipSubmission();
+                } else if (e.code === 'Enter') {
+                    e.preventDefault();
+                    this.submitCurrentRun();
+                }
+            }
+            // Finish screen (leaderboard)
+            else if (this.finishScreen.style.display === 'flex') {
                 if (e.code === 'Space') {
                     e.preventDefault();
                     this.hideFinishScreen();
@@ -54,6 +74,11 @@ export class UIManager {
                 }
             }
         });
+        
+        // Submit button click
+        if (this.submitRunBtn) {
+            this.submitRunBtn.addEventListener('click', () => this.submitCurrentRun());
+        }
         
         // Click handlers for nav arrows
         document.getElementById('prev-track')?.addEventListener('click', () => this.prevTrack());
@@ -226,18 +251,77 @@ export class UIManager {
         this.updateSideLeaderboard();
     }
     
-    showFinishScreen(timeMs, recording, submitResult) {
+    // Show name input screen after finishing a run
+    showNameInputScreen(timeMs, snapshots) {
+        this.pendingRun = { time: timeMs, snapshots };
+        
+        this.nameScreen.style.display = 'flex';
+        this.runTimeEl.textContent = this.formatTime(timeMs);
+        
+        // Check if personal best
+        const personalBests = this.game.ghostManager?.getPersonalBests() || [];
+        const isPersonalBest = personalBests.length === 0 || timeMs < personalBests[0].time;
+        
+        if (isPersonalBest) {
+            this.runStatusEl.textContent = 'New Personal Best!';
+            this.runStatusEl.style.fontWeight = '600';
+        } else {
+            const rank = personalBests.filter(pb => pb.time < timeMs).length + 1;
+            this.runStatusEl.textContent = `Personal Rank #${rank}`;
+            this.runStatusEl.style.fontWeight = 'normal';
+        }
+        
+        // Focus name input
+        if (this.playerNameInput) {
+            this.playerNameInput.value = this.savedPlayerName;
+            setTimeout(() => this.playerNameInput.focus(), 100);
+        }
+    }
+    
+    async submitCurrentRun() {
+        if (!this.pendingRun) return;
+        
+        const name = this.playerNameInput?.value.trim() || 'Player';
+        
+        // Save name for next time
+        localStorage.setItem('chips-player-name', name);
+        this.savedPlayerName = name;
+        
+        // Submit the run
+        const result = await this.game.ghostManager.submitRun(
+            name, 
+            this.pendingRun.time, 
+            this.pendingRun.snapshots
+        );
+        
+        // Hide name screen, show finish screen
+        this.nameScreen.style.display = 'none';
+        this.showFinishScreen(this.pendingRun.time, result);
+        this.pendingRun = null;
+    }
+    
+    skipSubmission() {
+        // Skip name input, just show leaderboard
+        if (this.pendingRun) {
+            this.nameScreen.style.display = 'none';
+            this.showFinishScreen(this.pendingRun.time, null);
+            this.pendingRun = null;
+        }
+    }
+    
+    showFinishScreen(timeMs, submitResult) {
         this.finishScreen.style.display = 'flex';
         this.finalTimeEl.textContent = this.formatTime(timeMs);
-        this.updateFinishLeaderboard(timeMs, submitResult);
+        this.updateFinishLeaderboard(submitResult);
     }
     
     hideFinishScreen() {
         this.finishScreen.style.display = 'none';
     }
     
+    // Update side leaderboard during gameplay (shows global)
     updateSideLeaderboard() {
-        const leaderboard = this.game.ghostManager?.getLeaderboard() || [];
+        const leaderboard = this.game.ghostManager?.getGlobalLeaderboard() || [];
         this.leaderboardListEl.innerHTML = '';
         
         if (leaderboard.length === 0) {
@@ -249,13 +333,18 @@ export class UIManager {
         
         leaderboard.slice(0, 5).forEach((entry, index) => {
             const li = document.createElement('li');
-            li.textContent = `${index + 1}. ${this.formatTime(entry.time)}`;
+            li.innerHTML = `<span>${index + 1}. ${entry.name || 'Player'}</span><span>${this.formatTime(entry.time)}</span>`;
             this.leaderboardListEl.appendChild(li);
         });
     }
     
-    updateFinishLeaderboard(currentTime, submitResult) {
-        const leaderboard = this.game.ghostManager?.getLeaderboard() || [];
+    // Update global leaderboard (called when Firebase data arrives)
+    updateLeaderboard(leaderboardData) {
+        this.updateSideLeaderboard();
+    }
+    
+    updateFinishLeaderboard(submitResult) {
+        const leaderboard = this.game.ghostManager?.getGlobalLeaderboard() || [];
         this.finishLeaderboardList.innerHTML = '';
         
         if (leaderboard.length === 0) {
@@ -267,8 +356,11 @@ export class UIManager {
         
         leaderboard.slice(0, 10).forEach((entry, index) => {
             const li = document.createElement('li');
-            const isCurrentRun = submitResult?.success && submitResult.rank === index + 1;
-            if (isCurrentRun) li.classList.add('current-run');
+            
+            // Highlight current player's run
+            if (submitResult?.success && submitResult.globalRank === index + 1) {
+                li.classList.add('current-run');
+            }
             
             const rank = document.createElement('span');
             rank.textContent = `${index + 1}. ${entry.name || 'Player'}`;
@@ -280,13 +372,5 @@ export class UIManager {
             li.appendChild(time);
             this.finishLeaderboardList.appendChild(li);
         });
-        
-        if (submitResult && !submitResult.success && submitResult.errors) {
-            const errorLi = document.createElement('li');
-            errorLi.style.color = '#ff6666';
-            errorLi.style.opacity = '0.8';
-            errorLi.textContent = submitResult.errors[0];
-            this.finishLeaderboardList.appendChild(errorLi);
-        }
     }
 }

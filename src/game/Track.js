@@ -74,7 +74,7 @@ export class Track {
         const trackMaterial = new THREE.MeshStandardMaterial({
             color: 0x6b5a48,
             roughness: 0.85,
-            metalness: 0.0,
+            metalness: 0,
             side: THREE.DoubleSide
         });
         
@@ -310,8 +310,8 @@ export class Track {
         this.createLineMark(startLinePos, startDir, 0xc4a35a, 'START');
         
         // FINISH: Use last track point
-        const finishPoint = this.trackPath[this.trackPath.length - 1];
-        const finishPrev = this.trackPath[this.trackPath.length - 2];
+        const finishPoint = this.trackPath.at(-1);
+        const finishPrev = this.trackPath.at(-2);
         const finishDir = new THREE.Vector3().subVectors(finishPoint, finishPrev).normalize();
         
         // Create FINISH line (checkered)

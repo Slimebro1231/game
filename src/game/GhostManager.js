@@ -14,74 +14,69 @@ export class GhostManager {
         
         this.ghosts = [];
         this.ghostMeshes = [];
-        this.maxGhosts = 3;
+        this.maxGhosts = 5; // Show top 5 ghosts
         
-        this.leaderboardData = [];
+        // Separate personal and global leaderboards
+        this.personalBests = [];  // Player's own runs (for ghosts)
+        this.globalLeaderboard = []; // Everyone's runs (for display)
     }
     
     // Initialize for a specific map
     initForMap(mapId) {
         this.mapId = mapId;
-        this.loadLocalLeaderboard();
-        this.fetchFirebaseLeaderboard();
+        this.loadPersonalBests();
+        this.fetchGlobalLeaderboard();
     }
     
     getStorageKey() {
-        return `chips-racing-${this.mapId || 'default'}`;
+        return `chips-racing-personal-${this.mapId || 'default'}`;
     }
     
-    loadLocalLeaderboard() {
+    loadPersonalBests() {
         try {
             const saved = localStorage.getItem(this.getStorageKey());
             if (saved) {
-                this.leaderboardData = JSON.parse(saved);
+                this.personalBests = JSON.parse(saved);
             } else {
-                this.leaderboardData = [];
+                this.personalBests = [];
             }
-            console.log(`Loaded ${this.leaderboardData.length} local entries for map: ${this.mapId}`);
+            console.log(`Loaded ${this.personalBests.length} personal bests for map: ${this.mapId}`);
         } catch (e) {
-            console.error('Failed to load local ghost data:', e);
-            this.leaderboardData = [];
+            console.error('Failed to load personal bests:', e);
+            this.personalBests = [];
         }
     }
     
-    saveLocalLeaderboard() {
+    savePersonalBests() {
         try {
-            const toSave = this.leaderboardData.slice(0, 10);
+            const toSave = this.personalBests.slice(0, 10);
             localStorage.setItem(this.getStorageKey(), JSON.stringify(toSave));
         } catch (e) {
-            console.error('Failed to save local ghost data:', e);
+            console.error('Failed to save personal bests:', e);
         }
     }
     
-    async fetchFirebaseLeaderboard() {
+    async fetchGlobalLeaderboard() {
         try {
             const firebaseEntries = await firebaseService.fetchLeaderboard(this.mapId);
             
-            if (firebaseEntries.length > 0) {
-                for (const entry of firebaseEntries) {
-                    const existing = this.leaderboardData.find(e => 
-                        e.timestamp === entry.timestamp ||
-                        (e.name === entry.name && Math.abs(e.time - entry.time) < 100)
-                    );
-                    
-                    if (!existing) {
-                        this.leaderboardData.push({
-                            name: entry.name,
-                            time: entry.time,
-                            data: entry.inputs || entry.data,
-                            timestamp: entry.timestamp,
-                            isRemote: true
-                        });
-                    }
-                }
-                
-                this.leaderboardData.sort((a, b) => a.time - b.time);
-                this.leaderboardData = this.leaderboardData.slice(0, 10);
-                this.saveLocalLeaderboard();
+            this.globalLeaderboard = firebaseEntries.map(entry => ({
+                name: entry.name,
+                time: entry.time,
+                data: entry.inputs || entry.data,
+                timestamp: entry.timestamp,
+                id: entry.id
+            }));
+            
+            this.globalLeaderboard.sort((a, b) => a.time - b.time);
+            console.log(`Fetched ${this.globalLeaderboard.length} global entries for map: ${this.mapId}`);
+            
+            // Update UI if available
+            if (this.game.ui) {
+                this.game.ui.updateLeaderboard(this.globalLeaderboard);
             }
         } catch (e) {
-            console.error('Failed to fetch Firebase leaderboard:', e);
+            console.error('Failed to fetch global leaderboard:', e);
         }
     }
     
@@ -90,7 +85,8 @@ export class GhostManager {
         this.ghostMeshes = [];
         this.ghosts = [];
         
-        const ghostsToShow = this.leaderboardData.slice(0, this.maxGhosts);
+        // Use personal bests for ghosts (player races against their own times)
+        const ghostsToShow = this.personalBests.slice(0, this.maxGhosts);
         
         ghostsToShow.forEach((ghostData, index) => {
             // Decode snapshots
@@ -100,10 +96,10 @@ export class GhostManager {
                 return;
             }
             
-            console.log(`Ghost ${index + 1} (${ghostData.name}): ${snapshots.length} snapshots, ~${ghostData.data?.length || 0} bytes`);
+            console.log(`Personal Ghost ${index + 1}: ${snapshots.length} snapshots, time: ${(ghostData.time / 1000).toFixed(2)}s`);
             
             const mesh = this.createGhostMesh(index);
-            mesh.userData.name = ghostData.name;
+            mesh.userData.name = 'PB #' + (index + 1);
             mesh.userData.time = ghostData.time;
             this.ghostMeshes.push(mesh);
             this.scene.add(mesh);
@@ -114,20 +110,23 @@ export class GhostManager {
                 finished: false
             });
         });
+        
+        console.log(`Created ${this.ghosts.length} personal ghost(s)`);
     }
     
     createGhostMesh(index) {
         const group = new THREE.Group();
         
-        const colors = [0xffd700, 0xc0c0c0, 0xcd7f32]; // Gold, Silver, Bronze
+        // Personal best colors - shades of blue/purple
+        const colors = [0x4488ff, 0x6666ff, 0x8844ff, 0xaa44ff, 0xcc44ff];
         const color = new THREE.Color(colors[index] || 0x8888ff);
         
         const material = new THREE.MeshStandardMaterial({
             color,
             transparent: true,
-            opacity: 0.4,
+            opacity: 0.35,
             emissive: color,
-            emissiveIntensity: 0.2
+            emissiveIntensity: 0.15
         });
         
         const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4), material);
@@ -188,54 +187,67 @@ export class GhostManager {
         
         console.log(`Recording: ${snapshots.length} snapshots -> ${encoded.length} bytes (${(encoded.length / snapshots.length).toFixed(1)} bytes/frame)`);
         
-        // Check local qualification
-        const qualifiesLocally = this.leaderboardData.length < 10 || 
-                                  time < this.leaderboardData[this.leaderboardData.length - 1]?.time;
+        const timestamp = Date.now();
         
-        if (!qualifiesLocally) {
-            return { success: false, errors: ['Time does not qualify for top 10'] };
-        }
-        
-        // Add to local leaderboard
-        const newEntry = {
-            name: name || 'Player',
+        // Always save to personal bests (up to 10)
+        const personalEntry = {
             time,
             data: encoded,
             checksum,
-            timestamp: Date.now(),
-            isRemote: false
+            timestamp
         };
         
-        this.leaderboardData.push(newEntry);
-        this.leaderboardData.sort((a, b) => a.time - b.time);
-        this.leaderboardData = this.leaderboardData.slice(0, 10);
-        this.saveLocalLeaderboard();
+        this.personalBests.push(personalEntry);
+        this.personalBests.sort((a, b) => a.time - b.time);
+        this.personalBests = this.personalBests.slice(0, 10);
+        this.savePersonalBests();
         
-        const localRank = this.leaderboardData.findIndex(e => e.timestamp === newEntry.timestamp) + 1;
+        const personalRank = this.personalBests.findIndex(e => e.timestamp === timestamp) + 1;
+        const isPersonalBest = personalRank === 1;
         
-        // Submit to Firebase
-        console.log('Submitting to Firebase:', { name, time, mapId: this.mapId, dataSize: encoded.length, checksum });
-        firebaseService.submitRun(name, time, encoded, checksum, this.mapId).then(result => {
+        // Submit to global Firebase leaderboard
+        console.log('Submitting to Firebase:', { name, time, mapId: this.mapId, dataSize: encoded.length });
+        
+        let globalRank = null;
+        try {
+            const result = await firebaseService.submitRun(name, time, encoded, checksum, this.mapId);
             if (result.success) {
-                console.log('Firebase submission successful! Rank:', result.rank);
+                globalRank = result.rank;
+                console.log('Firebase submission successful! Global rank:', globalRank);
+                // Refresh global leaderboard
+                this.fetchGlobalLeaderboard();
             } else {
-                console.warn('Firebase submission failed:', result.error);
+                console.warn('Firebase submission:', result.error);
             }
-        }).catch(e => {
+        } catch (e) {
             console.error('Firebase error:', e);
-        });
+        }
         
         this.createGhostMeshes();
         
-        return { success: true, rank: localRank };
+        return { 
+            success: true, 
+            personalRank, 
+            globalRank, 
+            isPersonalBest 
+        };
     }
     
-    getLeaderboard() {
-        return this.leaderboardData.map(entry => ({
+    // Get global leaderboard for display
+    getGlobalLeaderboard() {
+        return this.globalLeaderboard.map(entry => ({
             name: entry.name,
             time: entry.time,
-            timestamp: entry.timestamp,
-            isRemote: entry.isRemote
+            timestamp: entry.timestamp
+        }));
+    }
+    
+    // Get personal bests
+    getPersonalBests() {
+        return this.personalBests.map((entry, i) => ({
+            rank: i + 1,
+            time: entry.time,
+            timestamp: entry.timestamp
         }));
     }
     
@@ -243,9 +255,9 @@ export class GhostManager {
         this.ghostMeshes.forEach(ghost => ghost.visible = false);
     }
     
-    clearLeaderboard() {
-        this.leaderboardData = [];
-        this.saveLocalLeaderboard();
+    clearPersonalBests() {
+        this.personalBests = [];
+        this.savePersonalBests();
         this.ghostMeshes.forEach(mesh => this.scene.remove(mesh));
         this.ghostMeshes = [];
         this.ghosts = [];

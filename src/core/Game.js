@@ -297,11 +297,8 @@ export class Game {
         // Stop input recording and get frames
         const inputFrames = inputRecorder.stopRecording();
         
-        // Submit run to ghost manager (validates and stores if top 10)
-        this.ghostManager.submitRun('Player', this.raceTime, inputFrames).then(result => {
-            // Show finish screen with result
-            this.ui.showFinishScreen(this.raceTime, inputFrames, result);
-        });
+        // Show name input screen (submission happens after user enters name)
+        this.ui.showNameInputScreen(this.raceTime, inputFrames);
         
         // Hide ghosts during finish screen
         this.ghostManager.hideGhosts();
