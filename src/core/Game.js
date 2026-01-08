@@ -40,7 +40,7 @@ export class Game {
         
         // Initialize game objects
         this.world = new World(this);
-        this.currentMapId = 'monaco'; // Default map
+        this.currentMapId = 'main'; // Default map - single track for now
         
         // Create vehicle first (with default position)
         this.vehicle = new Vehicle(this);

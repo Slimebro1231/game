@@ -31,18 +31,19 @@ export class UIManager {
     }
     
     setupEventListeners() {
-        // A/D for track selection, Space to start/restart
+        // Space to start/restart (track selection disabled temporarily)
         document.addEventListener('keydown', (e) => {
-            // Track selection (only on start screen)
             if (this.startScreen.style.display === 'flex') {
-                if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
-                    this.prevTrack();
-                } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
-                    this.nextTrack();
-                } else if (e.code === 'Space') {
+                // Track selection disabled - just space to start
+                // if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+                //     this.prevTrack();
+                // } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+                //     this.nextTrack();
+                // }
+                if (e.code === 'Space') {
                     e.preventDefault();
                     this.hideStartScreen();
-                    this.game.switchMap(this.availableMaps[this.selectedMapIndex].id);
+                    // Use default map 'main' instead of selection
                     this.game.startRace();
                 }
             } else if (this.finishScreen.style.display === 'flex') {

@@ -238,6 +238,17 @@
             text-transform: uppercase;
         }
         
+        /* Game Title */
+        .game-title {
+            font-size: 64px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 8px;
+            text-shadow: 0 0 60px var(--accent-glow), 0 0 120px var(--accent-glow);
+            margin-bottom: 48px;
+            text-transform: uppercase;
+        }
+        
         /* Start Prompt */
         .start-prompt {
             text-align: center;
@@ -398,14 +409,16 @@
         
         <!-- Start Screen with Track Selection -->
         <div id="start-screen" class="overlay-screen">
-            <div id="track-selector">
+            <!-- Track selector temporarily disabled -->
+            <div id="track-selector" style="display: none;">
                 <div class="track-nav" id="prev-track">&larr;</div>
                 <div class="track-cards" id="track-cards"></div>
                 <div class="track-nav" id="next-track">&rarr;</div>
             </div>
             
+            <h1 class="game-title">CHIPS RACING</h1>
+            
             <div class="start-prompt">
-                <div class="key-hint">A / D to select track</div>
                 <div class="spacebar-key">SPACE</div>
                 <div class="spacebar-label">press to start</div>
             </div>
