@@ -1,0 +1,22 @@
+{
+  "name": "chips-trackmania",
+  "version": "0.1.0",
+  "description": "Top-down isometric racing game with ghost replays and leaderboards",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.160.0",
+    "cannon-es": "^0.20.0",
+    "firebase": "^10.7.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "keywords": ["game", "racing", "three.js", "trackmania"],
+  "author": "Max Hanzhi Li",
+  "license": "MIT"
+}
