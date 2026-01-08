@@ -15,6 +15,7 @@ export class World {
         
         this.createGround();
         this.createGrid();
+        this.createStarfield();
         // this.createVortex(); // Disabled - camera angle doesn't show it well
         this.createAtmosphere();
         this.createAmbientParticles();
@@ -87,6 +88,94 @@ export class World {
         this.fineGrid.material.opacity = 0.05;
         this.fineGrid.material.transparent = true;
         this.scene.add(this.fineGrid);
+    }
+    
+    createStarfield() {
+        // Create a dome of stars above the track
+        const starCount = 2000;
+        const positions = new Float32Array(starCount * 3);
+        const colors = new Float32Array(starCount * 3);
+        const sizes = new Float32Array(starCount);
+        
+        for (let i = 0; i < starCount; i++) {
+            // Distribute on a hemisphere
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.random() * Math.PI * 0.4; // Only upper hemisphere
+            const radius = 300 + Math.random() * 100;
+            
+            positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+            positions[i * 3 + 1] = radius * Math.cos(phi) + 50; // Offset up
+            positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
+            
+            // Color variation - white to cyan to pink
+            const colorType = Math.random();
+            if (colorType < 0.6) {
+                // White
+                colors[i * 3] = 0.9 + Math.random() * 0.1;
+                colors[i * 3 + 1] = 0.9 + Math.random() * 0.1;
+                colors[i * 3 + 2] = 0.9 + Math.random() * 0.1;
+            } else if (colorType < 0.8) {
+                // Cyan (accent color)
+                colors[i * 3] = 0;
+                colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
+                colors[i * 3 + 2] = 0.5 + Math.random() * 0.3;
+            } else {
+                // Pink/purple
+                colors[i * 3] = 0.8 + Math.random() * 0.2;
+                colors[i * 3 + 1] = 0.3 + Math.random() * 0.3;
+                colors[i * 3 + 2] = 0.8 + Math.random() * 0.2;
+            }
+            
+            // Random sizes with some bright stars
+            sizes[i] = Math.random() < 0.05 ? 2 + Math.random() * 2 : 0.5 + Math.random() * 1;
+        }
+        
+        const starGeometry = new THREE.BufferGeometry();
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+        
+        // Custom shader for variable star sizes
+        const starMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 }
+            },
+            vertexShader: `
+                attribute float size;
+                varying vec3 vColor;
+                uniform float time;
+                
+                void main() {
+                    vColor = color;
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    
+                    // Twinkle effect
+                    float twinkle = sin(time * 2.0 + position.x * 0.1) * 0.3 + 0.7;
+                    
+                    gl_PointSize = size * twinkle * (200.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vColor;
+                
+                void main() {
+                    // Circular point with soft edge
+                    float dist = length(gl_PointCoord - vec2(0.5));
+                    if (dist > 0.5) discard;
+                    
+                    float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
+                    gl_FragColor = vec4(vColor, alpha);
+                }
+            `,
+            transparent: true,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        
+        this.stars = new THREE.Points(starGeometry, starMaterial);
+        this.scene.add(this.stars);
     }
     
     createVortex() {
@@ -342,6 +431,11 @@ export class World {
     
     update(delta) {
         this.time += delta;
+        
+        // Animate starfield twinkle
+        if (this.stars && this.stars.material.uniforms) {
+            this.stars.material.uniforms.time.value = this.time;
+        }
         
         // Animate vortex shader
         if (this.vortexMaterial) {

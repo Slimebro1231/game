@@ -205,24 +205,139 @@ export class Vehicle {
     }
     
     createTrailEffect() {
-        // Simple trail using line
-        const maxTrailPoints = 50;
-        const positions = new Float32Array(maxTrailPoints * 3);
+        // Drift particles - sparks and smoke
+        this.particles = [];
+        this.maxParticles = 100;
         
-        this.trailGeometry = new THREE.BufferGeometry();
-        this.trailGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        
-        const trailMaterial = new THREE.LineBasicMaterial({
-            color: 0x00ff88,
+        // Spark material (bright, additive)
+        this.sparkMaterial = new THREE.PointsMaterial({
+            color: 0xff8844,
+            size: 0.3,
             transparent: true,
-            opacity: 0.5
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
         });
         
-        this.trail = new THREE.Line(this.trailGeometry, trailMaterial);
-        this.scene.add(this.trail);
+        // Smoke material (soft, darker)
+        this.smokeMaterial = new THREE.PointsMaterial({
+            color: 0x888888,
+            size: 0.8,
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.NormalBlending,
+            depthWrite: false
+        });
         
-        this.trailPositions = [];
-        this.maxTrailPoints = maxTrailPoints;
+        // Create particle geometries
+        this.sparkGeometry = new THREE.BufferGeometry();
+        this.smokeGeometry = new THREE.BufferGeometry();
+        
+        const sparkPositions = new Float32Array(this.maxParticles * 3);
+        const smokePositions = new Float32Array(this.maxParticles * 3);
+        
+        this.sparkGeometry.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+        this.smokeGeometry.setAttribute('position', new THREE.BufferAttribute(smokePositions, 3));
+        
+        this.sparkPoints = new THREE.Points(this.sparkGeometry, this.sparkMaterial);
+        this.smokePoints = new THREE.Points(this.smokeGeometry, this.smokeMaterial);
+        
+        this.scene.add(this.sparkPoints);
+        this.scene.add(this.smokePoints);
+        
+        // Particle data arrays
+        this.sparkData = [];
+        this.smokeData = [];
+        
+        for (let i = 0; i < this.maxParticles; i++) {
+            this.sparkData.push({ pos: new THREE.Vector3(), vel: new THREE.Vector3(), life: 0 });
+            this.smokeData.push({ pos: new THREE.Vector3(), vel: new THREE.Vector3(), life: 0, size: 0 });
+        }
+        
+        this.sparkIndex = 0;
+        this.smokeIndex = 0;
+    }
+    
+    emitDriftParticles() {
+        if (!this.isHandbraking) return;
+        
+        const speed = this.velocity.length();
+        if (speed < 5) return;
+        
+        // Emit from rear wheels
+        const rearLeft = new THREE.Vector3(-0.8, 0.1, -1.2);
+        const rearRight = new THREE.Vector3(0.8, 0.1, -1.2);
+        
+        rearLeft.applyQuaternion(this.mesh.quaternion);
+        rearRight.applyQuaternion(this.mesh.quaternion);
+        
+        rearLeft.add(this.mesh.position);
+        rearRight.add(this.mesh.position);
+        
+        // Sparks - fast, bright, short-lived
+        for (let i = 0; i < 2; i++) {
+            const spark = this.sparkData[this.sparkIndex];
+            spark.pos.copy(i === 0 ? rearLeft : rearRight);
+            spark.pos.x += (Math.random() - 0.5) * 0.3;
+            spark.pos.z += (Math.random() - 0.5) * 0.3;
+            spark.vel.set(
+                (Math.random() - 0.5) * 3,
+                Math.random() * 2 + 1,
+                (Math.random() - 0.5) * 3
+            );
+            spark.life = 0.3 + Math.random() * 0.2;
+            this.sparkIndex = (this.sparkIndex + 1) % this.maxParticles;
+        }
+        
+        // Smoke - slow, soft, longer-lived
+        const smoke = this.smokeData[this.smokeIndex];
+        smoke.pos.copy(Math.random() > 0.5 ? rearLeft : rearRight);
+        smoke.vel.set(
+            (Math.random() - 0.5) * 0.5,
+            Math.random() * 0.5 + 0.3,
+            (Math.random() - 0.5) * 0.5
+        );
+        smoke.life = 1 + Math.random() * 0.5;
+        smoke.size = 0.5 + Math.random() * 0.5;
+        this.smokeIndex = (this.smokeIndex + 1) % this.maxParticles;
+    }
+    
+    updateParticles(delta) {
+        // Update sparks
+        const sparkPositions = this.sparkGeometry.attributes.position.array;
+        for (let i = 0; i < this.maxParticles; i++) {
+            const spark = this.sparkData[i];
+            if (spark.life > 0) {
+                spark.life -= delta;
+                spark.vel.y -= 9.8 * delta; // Gravity
+                spark.pos.add(spark.vel.clone().multiplyScalar(delta));
+                
+                sparkPositions[i * 3] = spark.pos.x;
+                sparkPositions[i * 3 + 1] = spark.pos.y;
+                sparkPositions[i * 3 + 2] = spark.pos.z;
+            } else {
+                sparkPositions[i * 3 + 1] = -100; // Hide below ground
+            }
+        }
+        this.sparkGeometry.attributes.position.needsUpdate = true;
+        
+        // Update smoke
+        const smokePositions = this.smokeGeometry.attributes.position.array;
+        for (let i = 0; i < this.maxParticles; i++) {
+            const smoke = this.smokeData[i];
+            if (smoke.life > 0) {
+                smoke.life -= delta;
+                smoke.pos.add(smoke.vel.clone().multiplyScalar(delta));
+                smoke.vel.y += 0.5 * delta; // Rise
+                
+                smokePositions[i * 3] = smoke.pos.x;
+                smokePositions[i * 3 + 1] = smoke.pos.y;
+                smokePositions[i * 3 + 2] = smoke.pos.z;
+            } else {
+                smokePositions[i * 3 + 1] = -100;
+            }
+        }
+        this.smokeGeometry.attributes.position.needsUpdate = true;
     }
     
     update(delta, input) {
@@ -330,8 +445,9 @@ export class Vehicle {
         this.leftTailLight.material.emissiveIntensity = tailIntensity;
         this.rightTailLight.material.emissiveIntensity = tailIntensity;
         
-        // Update trail
-        this.updateTrail();
+        // Emit and update drift particles
+        this.emitDriftParticles();
+        this.updateParticles(delta);
     }
     
     checkOffTrack() {
@@ -354,27 +470,6 @@ export class Vehicle {
         return minDist > trackWidth / 2 + 1;
     }
     
-    updateTrail() {
-        // Add current position to trail
-        this.trailPositions.unshift(this.mesh.position.clone());
-        
-        // Limit trail length
-        if (this.trailPositions.length > this.maxTrailPoints) {
-            this.trailPositions.pop();
-        }
-        
-        // Update geometry
-        const positions = this.trailGeometry.attributes.position.array;
-        for (let i = 0; i < this.maxTrailPoints; i++) {
-            if (i < this.trailPositions.length) {
-                positions[i * 3] = this.trailPositions[i].x;
-                positions[i * 3 + 1] = this.trailPositions[i].y;
-                positions[i * 3 + 2] = this.trailPositions[i].z;
-            }
-        }
-        this.trailGeometry.attributes.position.needsUpdate = true;
-        this.trailGeometry.setDrawRange(0, this.trailPositions.length);
-    }
     
     getForwardDirection() {
         const forward = new THREE.Vector3(0, 0, 1);
