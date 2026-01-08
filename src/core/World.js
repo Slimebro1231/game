@@ -130,15 +130,19 @@ export class World {
     }
     
     async loadNatureAssets() {
-        // Asset types to load - reduced counts for performance
+        // Dense forest - lots of trees
         const assetDefs = [
-            { name: 'tree1', path: '/models/CommonTree_1.gltf', count: 12, scale: 3.5 },
-            { name: 'tree2', path: '/models/CommonTree_2.gltf', count: 10, scale: 3.5 },
-            { name: 'pine1', path: '/models/Pine_1.gltf', count: 10, scale: 4.0 },
-            { name: 'rock1', path: '/models/Rock_Medium_1.gltf', count: 15, scale: 1.5 },
-            { name: 'rock2', path: '/models/Rock_Medium_2.gltf', count: 12, scale: 1.2 },
-            { name: 'bush1', path: '/models/Bush_Common.gltf', count: 18, scale: 2.0 },
+            { name: 'tree1', path: '/models/CommonTree_1.gltf', count: 50, scale: 3.5, isTree: true },
+            { name: 'tree2', path: '/models/CommonTree_2.gltf', count: 45, scale: 3.5, isTree: true },
+            { name: 'tree3', path: '/models/CommonTree_3.gltf', count: 40, scale: 3.0, isTree: true },
+            { name: 'pine1', path: '/models/Pine_1.gltf', count: 50, scale: 4.0, isTree: true },
+            { name: 'pine2', path: '/models/Pine_2.gltf', count: 40, scale: 3.5, isTree: true },
+            { name: 'rock1', path: '/models/Rock_Medium_1.gltf', count: 20, scale: 1.5, isTree: false },
+            { name: 'rock2', path: '/models/Rock_Medium_2.gltf', count: 15, scale: 1.2, isTree: false },
+            { name: 'bush1', path: '/models/Bush_Common.gltf', count: 30, scale: 2.0, isTree: false },
         ];
+        
+        this.treeObjects = []; // Track trees separately for transparency
         
         // Load all assets
         for (const def of assetDefs) {
@@ -148,7 +152,8 @@ export class World {
                     this.loadedAssets[def.name] = { 
                         scene: gltf.scene, 
                         count: def.count, 
-                        scale: def.scale 
+                        scale: def.scale,
+                        isTree: def.isTree
                     };
                 }
             } catch (e) {
@@ -209,8 +214,8 @@ export class World {
                         minDistToTrack = Math.min(minDistToTrack, dist);
                     }
                     
-                    // Trees/bushes should be away from track, rocks can be closer
-                    const minDist = name.includes('rock') ? trackWidth * 0.8 : trackWidth * 1.5;
+                    // Trees closer to track edge, rocks can be closer
+                    const minDist = name.includes('rock') ? trackWidth * 0.7 : trackWidth * 1.2;
                     
                     if (minDistToTrack > minDist) {
                         validPosition = true;
@@ -231,21 +236,49 @@ export class World {
                     // Position
                     clone.position.set(x, 0, z);
                     
-                    // Enable shadows
+                    // Collect materials for trees (for transparency)
+                    const materials = [];
                     clone.traverse((child) => {
                         if (child.isMesh) {
                             child.castShadow = true;
                             child.receiveShadow = true;
+                            
+                            // Make material support transparency for trees
+                            if (asset.isTree) {
+                                if (Array.isArray(child.material)) {
+                                    child.material = child.material.map(m => {
+                                        const newMat = m.clone();
+                                        newMat.transparent = true;
+                                        newMat.opacity = 1;
+                                        materials.push(newMat);
+                                        return newMat;
+                                    });
+                                } else {
+                                    child.material = child.material.clone();
+                                    child.material.transparent = true;
+                                    child.material.opacity = 1;
+                                    materials.push(child.material);
+                                }
+                            }
                         }
                     });
                     
                     this.scene.add(clone);
                     this.scatteredObjects.push(clone);
+                    
+                    // Track trees for transparency updates
+                    if (asset.isTree) {
+                        this.treeObjects.push({
+                            object: clone,
+                            materials: materials,
+                            position: new THREE.Vector3(x, 0, z)
+                        });
+                    }
                 }
             }
         }
         
-        console.log(`Scattered ${this.scatteredObjects.length} nature objects`);
+        console.log(`Scattered ${this.scatteredObjects.length} nature objects (${this.treeObjects.length} trees)`);
     }
     
     updateTheme(isDark) {
@@ -295,6 +328,7 @@ export class World {
             });
         }
         this.scatteredObjects = [];
+        this.treeObjects = [];
     }
     
     // Re-scatter for new map
@@ -308,6 +342,64 @@ export class World {
     update(delta) {
         this.time += delta;
         
-        // Subtle wind sway could be added for trees here if desired
+        // Update tree transparency based on camera line of sight
+        this.updateTreeTransparency();
+    }
+    
+    updateTreeTransparency() {
+        if (!this.treeObjects || this.treeObjects.length === 0) return;
+        if (!this.game.vehicle?.mesh || !this.game.camera) return;
+        
+        const carPos = this.game.vehicle.mesh.position;
+        const camPos = this.game.camera.position;
+        
+        // Direction from camera to car
+        const camToCarDir = new THREE.Vector3().subVectors(carPos, camPos).normalize();
+        const camToCarDist = camPos.distanceTo(carPos);
+        
+        for (const tree of this.treeObjects) {
+            // Vector from camera to tree
+            const camToTree = new THREE.Vector3().subVectors(tree.position, camPos);
+            const treeDistFromCam = camToTree.length();
+            
+            // Only check trees between camera and car
+            if (treeDistFromCam > camToCarDist + 10) {
+                // Tree is behind car, full opacity
+                this.setTreeOpacity(tree, 1.0);
+                continue;
+            }
+            
+            // Project tree position onto camera-to-car line
+            const projection = camToTree.dot(camToCarDir);
+            
+            if (projection < 0) {
+                // Tree is behind camera
+                this.setTreeOpacity(tree, 1.0);
+                continue;
+            }
+            
+            // Perpendicular distance from tree to line
+            const closestPoint = camPos.clone().add(camToCarDir.clone().multiplyScalar(projection));
+            const perpDist = tree.position.distanceTo(closestPoint);
+            
+            // If tree is close to the line of sight, make it transparent
+            const fadeRadius = 15; // Trees within this radius of line get transparent
+            if (perpDist < fadeRadius && projection > 5) {
+                // Calculate opacity based on distance
+                const opacity = Math.min(1, perpDist / fadeRadius);
+                this.setTreeOpacity(tree, Math.max(0.2, opacity));
+            } else {
+                this.setTreeOpacity(tree, 1.0);
+            }
+        }
+    }
+    
+    setTreeOpacity(tree, opacity) {
+        for (const mat of tree.materials) {
+            if (mat.opacity !== opacity) {
+                mat.opacity = opacity;
+                mat.needsUpdate = true;
+            }
+        }
     }
 }

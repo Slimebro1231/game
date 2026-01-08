@@ -4,6 +4,11 @@
  */
 
 import { Game } from './core/Game.js';
+import { firebaseService } from './core/FirebaseService.js';
+
+// DEV: Clear leaderboard on map changes (run once then remove)
+// Uncomment to clear:
+// firebaseService.clearLeaderboard('main').then(r => console.log('Cleared leaderboard:', r));
 
 // Theme management
 function initTheme() {

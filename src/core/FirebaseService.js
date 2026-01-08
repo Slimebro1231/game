@@ -122,6 +122,31 @@ export class FirebaseService {
             return { success: false, error: e.message };
         }
     }
+    
+    // Clear all entries for a specific map (for map updates)
+    async clearLeaderboard(mapId = 'default') {
+        if (!this.initialized || !db) {
+            return { success: false, error: 'Firebase not initialized' };
+        }
+        
+        try {
+            const leaderboardRef = collection(db, 'leaderboard');
+            const q = query(leaderboardRef, where('mapId', '==', mapId));
+            const snapshot = await getDocs(q);
+            
+            let deleted = 0;
+            for (const docSnap of snapshot.docs) {
+                await deleteDoc(doc(db, 'leaderboard', docSnap.id));
+                deleted++;
+            }
+            
+            console.log(`Cleared ${deleted} entries for map: ${mapId}`);
+            return { success: true, deleted };
+        } catch (e) {
+            console.error('Failed to clear leaderboard:', e);
+            return { success: false, error: e.message };
+        }
+    }
 }
 
 export const firebaseService = new FirebaseService();

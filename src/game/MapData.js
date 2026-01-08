@@ -4,37 +4,45 @@
  */
 
 export const MAPS = {
-    // Main track - Long flowing circuit with variety
+    // Main track - Winding forest road, point to point
     'main': {
-        name: 'Grand Circuit',
-        description: 'Long flowing layout with sweeping corners',
+        name: 'Forest Trail',
+        description: 'Winding path through the woods',
         controlPoints: [
-            // Start/finish straight
+            // Start - clearing
             { x: 0, z: 0 },
-            { x: 80, z: 0 },
-            // First sweeping right
-            { x: 140, z: 30 },
-            { x: 180, z: 80 },
-            // Back straight with slight curve
-            { x: 200, z: 150 },
-            { x: 180, z: 220 },
-            // Hairpin
-            { x: 120, z: 260 },
-            { x: 60, z: 250 },
-            // Long left-hand sweep
-            { x: -20, z: 200 },
-            { x: -80, z: 130 },
-            // Esses (chicane section)
-            { x: -100, z: 80 },
-            { x: -80, z: 30 },
-            { x: -100, z: -20 },
-            { x: -70, z: -60 },
-            // Final corner back to start
-            { x: -20, z: -40 },
-            { x: 0, z: 0 },
+            { x: 40, z: 10 },
+            // First S-curve
+            { x: 80, z: 35 },
+            { x: 100, z: 70 },
+            { x: 85, z: 110 },
+            // Sweeping left
+            { x: 50, z: 140 },
+            { x: 20, z: 180 },
+            // Tight right hairpin
+            { x: 40, z: 220 },
+            { x: 80, z: 240 },
+            // Long curve through forest
+            { x: 130, z: 230 },
+            { x: 170, z: 200 },
+            { x: 190, z: 150 },
+            // Chicane
+            { x: 210, z: 110 },
+            { x: 195, z: 75 },
+            { x: 215, z: 40 },
+            // Sweeping right descent
+            { x: 250, z: 10 },
+            { x: 290, z: -20 },
+            // Final curves
+            { x: 320, z: -60 },
+            { x: 340, z: -110 },
+            { x: 330, z: -160 },
+            // Finish straight
+            { x: 290, z: -190 },
+            { x: 240, z: -200 },
         ],
-        isLoop: true,
-        color: '#00ff88'
+        isLoop: false,
+        color: '#8b6914'
     },
     
     // Monaco - Extended street circuit (no overlaps)

@@ -6,12 +6,11 @@ export default defineConfig({
         outDir: 'dist',
         assetsDir: 'assets',
         sourcemap: false,
-        minify: 'terser',
+        minify: 'esbuild', // Use esbuild (built-in, faster than terser)
         rollupOptions: {
             output: {
                 manualChunks: {
-                    three: ['three'],
-                    cannon: ['cannon-es']
+                    three: ['three']
                 }
             }
         }
