@@ -9,14 +9,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "^0.160.0",
     "cannon-es": "^0.20.0",
-    "firebase": "^10.7.0"
+    "firebase": "^10.14.1",
+    "three": "^0.160.0"
   },
   "devDependencies": {
     "vite": "^5.0.0"
   },
-  "keywords": ["game", "racing", "three.js", "trackmania"],
+  "keywords": [
+    "game",
+    "racing",
+    "three.js",
+    "trackmania"
+  ],
   "author": "Max Hanzhi Li",
   "license": "MIT"
 }

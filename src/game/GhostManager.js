@@ -1,8 +1,11 @@
 /**
- * GhostManager - manages ghost replays and leaderboard
+ * GhostManager - Snapshot-based ghost replay
+ * Uses compressed position data with interpolation for smooth playback
  */
 
 import * as THREE from 'three';
+import { ghostRecorder } from '../core/InputRecorder.js';
+import { firebaseService } from '../core/FirebaseService.js';
 
 export class GhostManager {
     constructor(game) {
@@ -11,194 +14,240 @@ export class GhostManager {
         
         this.ghosts = [];
         this.ghostMeshes = [];
-        this.maxGhosts = 5; // Show top 5 ghosts
+        this.maxGhosts = 3;
         
-        // Ghost material (transparent)
-        this.ghostMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8888ff,
-            transparent: true,
-            opacity: 0.3,
-            emissive: 0x4444ff,
-            emissiveIntensity: 0.2
-        });
-        
-        // Load ghosts from leaderboard (placeholder)
-        this.loadLeaderboard();
-    }
-    
-    async loadLeaderboard() {
-        // TODO: Load from Firebase
-        // Start with empty leaderboard - no demo ghosts
         this.leaderboardData = [];
-        
-        // Update UI
-        this.game.ui.updateLeaderboard([]);
     }
     
-    generateDemoGhost() {
-        // Generate a demo ghost recording that follows the track roughly
-        const recording = [];
-        const trackPoints = [];
-        
-        // Generate oval path similar to track
-        for (let i = 0; i <= 200; i++) {
-            const t = (i / 200) * Math.PI * 2;
-            const x = Math.sin(t) * 40 + Math.sin(t * 3) * 5;
-            const z = Math.cos(t) * 25 + Math.cos(t * 2) * 3;
-            trackPoints.push(new THREE.Vector3(x, 0.5, z));
+    // Initialize for a specific map
+    initForMap(mapId) {
+        this.mapId = mapId;
+        this.loadLocalLeaderboard();
+        this.fetchFirebaseLeaderboard();
+    }
+    
+    getStorageKey() {
+        return `chips-racing-${this.mapId || 'default'}`;
+    }
+    
+    loadLocalLeaderboard() {
+        try {
+            const saved = localStorage.getItem(this.getStorageKey());
+            if (saved) {
+                this.leaderboardData = JSON.parse(saved);
+            } else {
+                this.leaderboardData = [];
+            }
+            console.log(`Loaded ${this.leaderboardData.length} local entries for map: ${this.mapId}`);
+        } catch (e) {
+            console.error('Failed to load local ghost data:', e);
+            this.leaderboardData = [];
         }
-        
-        // Create recording with timing
-        const totalTime = 50000; // 50 seconds
-        const interval = 50; // 50ms intervals
-        
-        for (let time = 0; time < totalTime; time += interval) {
-            const progress = time / totalTime;
-            const index = Math.floor(progress * (trackPoints.length - 1));
-            const position = trackPoints[index].clone();
-            
-            // Calculate rotation based on direction
-            const nextIndex = Math.min(index + 1, trackPoints.length - 1);
-            const direction = new THREE.Vector3().subVectors(trackPoints[nextIndex], position);
-            const rotation = new THREE.Euler(0, Math.atan2(direction.x, direction.z), 0);
-            
-            recording.push({
-                time: time,
-                position: position,
-                rotation: rotation,
-                velocity: new THREE.Vector3(0, 0, 5)
-            });
+    }
+    
+    saveLocalLeaderboard() {
+        try {
+            const toSave = this.leaderboardData.slice(0, 10);
+            localStorage.setItem(this.getStorageKey(), JSON.stringify(toSave));
+        } catch (e) {
+            console.error('Failed to save local ghost data:', e);
         }
-        
-        return recording;
+    }
+    
+    async fetchFirebaseLeaderboard() {
+        try {
+            const firebaseEntries = await firebaseService.fetchLeaderboard(this.mapId);
+            
+            if (firebaseEntries.length > 0) {
+                for (const entry of firebaseEntries) {
+                    const existing = this.leaderboardData.find(e => 
+                        e.timestamp === entry.timestamp ||
+                        (e.name === entry.name && Math.abs(e.time - entry.time) < 100)
+                    );
+                    
+                    if (!existing) {
+                        this.leaderboardData.push({
+                            name: entry.name,
+                            time: entry.time,
+                            data: entry.inputs || entry.data,
+                            timestamp: entry.timestamp,
+                            isRemote: true
+                        });
+                    }
+                }
+                
+                this.leaderboardData.sort((a, b) => a.time - b.time);
+                this.leaderboardData = this.leaderboardData.slice(0, 10);
+                this.saveLocalLeaderboard();
+            }
+        } catch (e) {
+            console.error('Failed to fetch Firebase leaderboard:', e);
+        }
     }
     
     createGhostMeshes() {
-        // Remove existing ghosts
-        this.ghostMeshes.forEach(mesh => {
-            this.scene.remove(mesh);
-        });
+        this.ghostMeshes.forEach(mesh => this.scene.remove(mesh));
         this.ghostMeshes = [];
+        this.ghosts = [];
         
-        // Create mesh for each ghost
         const ghostsToShow = this.leaderboardData.slice(0, this.maxGhosts);
         
         ghostsToShow.forEach((ghostData, index) => {
-            const ghost = this.createGhostMesh(index);
-            ghost.userData.recording = ghostData.recording;
-            ghost.userData.name = ghostData.name;
-            this.ghostMeshes.push(ghost);
-            this.scene.add(ghost);
+            // Decode snapshots
+            const snapshots = ghostRecorder.decode(ghostData.data);
+            if (!snapshots || snapshots.length === 0) {
+                console.warn('Failed to decode ghost', index, ghostData.name);
+                return;
+            }
+            
+            console.log(`Ghost ${index + 1} (${ghostData.name}): ${snapshots.length} snapshots, ~${ghostData.data?.length || 0} bytes`);
+            
+            const mesh = this.createGhostMesh(index);
+            mesh.userData.name = ghostData.name;
+            mesh.userData.time = ghostData.time;
+            this.ghostMeshes.push(mesh);
+            this.scene.add(mesh);
+            
+            this.ghosts.push({
+                mesh,
+                snapshots,
+                finished: false
+            });
         });
     }
     
     createGhostMesh(index) {
-        // Create simplified ghost car mesh
         const group = new THREE.Group();
         
-        // Vary color slightly for each ghost
-        const hue = 0.6 + (index * 0.05);
-        const color = new THREE.Color().setHSL(hue, 0.5, 0.5);
+        const colors = [0xffd700, 0xc0c0c0, 0xcd7f32]; // Gold, Silver, Bronze
+        const color = new THREE.Color(colors[index] || 0x8888ff);
         
         const material = new THREE.MeshStandardMaterial({
-            color: color,
+            color,
             transparent: true,
-            opacity: 0.25,
+            opacity: 0.4,
             emissive: color,
-            emissiveIntensity: 0.1
+            emissiveIntensity: 0.2
         });
         
-        // Simple car shape
-        const bodyGeometry = new THREE.BoxGeometry(2, 0.6, 4);
-        const body = new THREE.Mesh(bodyGeometry, material);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4), material);
         body.position.y = 0.3;
         group.add(body);
         
-        // Cockpit
-        const cockpitGeometry = new THREE.BoxGeometry(1.5, 0.4, 2);
-        const cockpit = new THREE.Mesh(cockpitGeometry, material);
+        const cockpit = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 2), material);
         cockpit.position.set(0, 0.6, -0.3);
         group.add(cockpit);
         
-        // Make invisible initially
         group.visible = false;
-        
         return group;
     }
     
+    startGhosts() {
+        this.createGhostMeshes();
+        
+        this.ghosts.forEach(ghost => {
+            ghost.finished = false;
+            ghost.mesh.visible = true;
+        });
+    }
+    
     update(raceTime) {
-        // Update each ghost position based on recording
-        this.ghostMeshes.forEach(ghost => {
-            if (!ghost.userData.recording) return;
+        if (!this.game.raceStarted) return;
+        
+        this.ghosts.forEach(ghost => {
+            if (!ghost.snapshots || ghost.snapshots.length === 0 || ghost.finished) {
+                ghost.mesh.visible = false;
+                return;
+            }
             
-            const recording = ghost.userData.recording;
+            // Get interpolated state at current time
+            const state = ghostRecorder.getStateAtTime(ghost.snapshots, raceTime);
             
-            // Find the appropriate frame in recording
-            const frame = this.getFrameAtTime(recording, raceTime);
-            
-            if (frame) {
-                ghost.visible = true;
-                ghost.position.copy(frame.position);
-                ghost.rotation.copy(frame.rotation);
+            if (state) {
+                ghost.mesh.visible = true;
+                ghost.mesh.position.set(state.x, 0.5, state.z);
+                ghost.mesh.rotation.set(0, state.rotY, 0);
             } else {
-                ghost.visible = false;
+                // Past end of recording
+                ghost.finished = true;
+                ghost.mesh.visible = false;
             }
         });
     }
     
-    getFrameAtTime(recording, time) {
-        if (!recording || recording.length === 0) return null;
-        
-        // Binary search for frame
-        let low = 0;
-        let high = recording.length - 1;
-        
-        while (low < high) {
-            const mid = Math.floor((low + high) / 2);
-            if (recording[mid].time < time) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
+    async submitRun(name, time, snapshots) {
+        // Validate
+        const validation = ghostRecorder.validateClient(snapshots, time);
+        if (!validation.valid) {
+            return { success: false, errors: validation.errors };
         }
         
-        // Interpolate between frames for smooth motion
-        if (low > 0 && low < recording.length) {
-            const prev = recording[low - 1];
-            const next = recording[low];
-            const t = (time - prev.time) / (next.time - prev.time);
-            
-            return {
-                position: new THREE.Vector3().lerpVectors(prev.position, next.position, t),
-                rotation: new THREE.Euler(
-                    prev.rotation.x + (next.rotation.x - prev.rotation.x) * t,
-                    prev.rotation.y + (next.rotation.y - prev.rotation.y) * t,
-                    prev.rotation.z + (next.rotation.z - prev.rotation.z) * t
-                )
-            };
+        // Encode with compression
+        const encoded = ghostRecorder.encode(snapshots);
+        const checksum = ghostRecorder.generateChecksum(snapshots, time);
+        
+        console.log(`Recording: ${snapshots.length} snapshots -> ${encoded.length} bytes (${(encoded.length / snapshots.length).toFixed(1)} bytes/frame)`);
+        
+        // Check local qualification
+        const qualifiesLocally = this.leaderboardData.length < 10 || 
+                                  time < this.leaderboardData[this.leaderboardData.length - 1]?.time;
+        
+        if (!qualifiesLocally) {
+            return { success: false, errors: ['Time does not qualify for top 10'] };
         }
         
-        return recording[low] || null;
-    }
-    
-    addGhost(name, time, recording) {
-        // Add new ghost to leaderboard
-        const newEntry = { name, time, recording };
+        // Add to local leaderboard
+        const newEntry = {
+            name: name || 'Player',
+            time,
+            data: encoded,
+            checksum,
+            timestamp: Date.now(),
+            isRemote: false
+        };
         
         this.leaderboardData.push(newEntry);
         this.leaderboardData.sort((a, b) => a.time - b.time);
+        this.leaderboardData = this.leaderboardData.slice(0, 10);
+        this.saveLocalLeaderboard();
         
-        // Keep only top entries
-        if (this.leaderboardData.length > 10) {
-            this.leaderboardData = this.leaderboardData.slice(0, 10);
-        }
+        const localRank = this.leaderboardData.findIndex(e => e.timestamp === newEntry.timestamp) + 1;
         
-        // Update UI and meshes
-        this.game.ui.updateLeaderboard(this.leaderboardData.map(entry => ({
-            name: entry.name,
-            time: entry.time
-        })));
+        // Submit to Firebase
+        console.log('Submitting to Firebase:', { name, time, mapId: this.mapId, dataSize: encoded.length, checksum });
+        firebaseService.submitRun(name, time, encoded, checksum, this.mapId).then(result => {
+            if (result.success) {
+                console.log('Firebase submission successful! Rank:', result.rank);
+            } else {
+                console.warn('Firebase submission failed:', result.error);
+            }
+        }).catch(e => {
+            console.error('Firebase error:', e);
+        });
         
         this.createGhostMeshes();
+        
+        return { success: true, rank: localRank };
+    }
+    
+    getLeaderboard() {
+        return this.leaderboardData.map(entry => ({
+            name: entry.name,
+            time: entry.time,
+            timestamp: entry.timestamp,
+            isRemote: entry.isRemote
+        }));
+    }
+    
+    hideGhosts() {
+        this.ghostMeshes.forEach(ghost => ghost.visible = false);
+    }
+    
+    clearLeaderboard() {
+        this.leaderboardData = [];
+        this.saveLocalLeaderboard();
+        this.ghostMeshes.forEach(mesh => this.scene.remove(mesh));
+        this.ghostMeshes = [];
+        this.ghosts = [];
     }
 }

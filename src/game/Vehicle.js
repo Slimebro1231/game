@@ -24,8 +24,8 @@ export class Vehicle {
         this.handbrakeMultiplier = 0.7;
         this.isHandbraking = false;
         
-        // Start position
-        this.startPosition = new THREE.Vector3(0, 0.5, 0);
+        // Start position - will be set by track after initialization
+        this.startPosition = new THREE.Vector3(0, 0.5, 34);
         this.startRotation = new THREE.Euler(0, 0, 0);
         
         this.createMesh();
@@ -153,11 +153,6 @@ export class Vehicle {
     update(delta, input) {
         if (!this.mesh) return;
         
-        // Start race immediately on first update
-        if (!this.game.raceStarted) {
-            this.game.startRace();
-        }
-        
         // Get current forward direction
         const forward = this.getForwardDirection();
         const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
@@ -165,16 +160,21 @@ export class Vehicle {
         // Calculate current speed in forward direction
         const currentSpeed = this.velocity.dot(forward);
         
-        // AUTO-DRIVE: Always accelerating forward (unless braking)
+        // Manual acceleration with W - no auto-drive
+        const isAccelerating = input.forward;
         const isBraking = input.backward;
         
-        if (!isBraking) {
+        if (isAccelerating) {
             const accelForce = this.acceleration * delta;
             const accel = forward.clone().multiplyScalar(accelForce);
             this.velocity.add(accel);
-        } else {
-            // Braking - strong deceleration
-            this.velocity.multiplyScalar(0.95);
+        }
+        
+        // Braking with S
+        if (isBraking) {
+            const brakeForce = forward.clone().multiplyScalar(-this.brakeForce * delta);
+            this.velocity.add(brakeForce);
+            this.velocity.multiplyScalar(0.92);
         }
         
         // Handbrake/Space (for drifting)
@@ -252,9 +252,6 @@ export class Vehicle {
         
         // Update trail
         this.updateTrail();
-        
-        // Check checkpoints
-        this.checkCheckpoints();
     }
     
     checkOffTrack() {
@@ -297,23 +294,6 @@ export class Vehicle {
         }
         this.trailGeometry.attributes.position.needsUpdate = true;
         this.trailGeometry.setDrawRange(0, this.trailPositions.length);
-    }
-    
-    checkCheckpoints() {
-        if (!this.game.track || !this.game.track.checkpoints) return;
-        if (!this.game.raceStarted || this.game.raceFinished) return;
-        
-        const currentCheckpoint = this.game.currentCheckpoint;
-        if (currentCheckpoint >= this.game.track.checkpoints.length) return;
-        
-        const checkpoint = this.game.track.checkpoints[currentCheckpoint];
-        const pos2D = new THREE.Vector2(this.mesh.position.x, this.mesh.position.z);
-        const cp2D = new THREE.Vector2(checkpoint.position.x, checkpoint.position.z);
-        const distance = pos2D.distanceTo(cp2D);
-        
-        if (distance < checkpoint.radius) {
-            this.game.passCheckpoint(currentCheckpoint);
-        }
     }
     
     getForwardDirection() {

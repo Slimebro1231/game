@@ -1,264 +1,319 @@
 /**
- * Track - manages the race track geometry and checkpoints
+ * Track - Spline-based track system supporting multiple maps
+ * All maps are point-to-point (lap maps just have start ≈ finish)
  */
 
 import * as THREE from 'three';
 
+// Map definitions - each map has control points for spline
+const MAPS = {
+    'test-short': {
+        name: 'Test Track',
+        // Simple short straight-ish track for testing
+        controlPoints: [
+            { x: 0, z: 0 },      // Start
+            { x: 20, z: 5 },
+            { x: 40, z: -5 },
+            { x: 60, z: 0 },
+            { x: 80, z: 10 },
+            { x: 100, z: 0 },    // Finish
+        ],
+        isLoop: false
+    },
+    'oval': {
+        name: 'Oval Circuit',
+        controlPoints: [
+            { x: 0, z: 30 },
+            { x: 30, z: 40 },
+            { x: 50, z: 20 },
+            { x: 40, z: -10 },
+            { x: 10, z: -20 },
+            { x: -30, z: -10 },
+            { x: -45, z: 15 },
+            { x: -30, z: 35 },
+            { x: 0, z: 30 },     // Back to start for loop
+        ],
+        isLoop: true
+    },
+    'random-spline': {
+        name: 'Random Circuit',
+        controlPoints: generateRandomSpline(),
+        isLoop: false
+    }
+};
+
+function generateRandomSpline() {
+    const points = [];
+    const numPoints = 8;
+    let x = 0, z = 0;
+    
+    for (let i = 0; i < numPoints; i++) {
+        points.push({ x, z });
+        // Random direction change
+        const angle = (Math.random() - 0.3) * Math.PI * 0.5; // Bias forward
+        const dist = 20 + Math.random() * 30;
+        x += Math.cos(angle) * dist + dist * 0.8; // Mostly forward
+        z += Math.sin(angle) * dist;
+    }
+    
+    return points;
+}
+
 export class Track {
-    constructor(game) {
+    constructor(game, mapId = 'test-short') {
         this.game = game;
         this.scene = game.scene;
+        this.mapId = mapId;
+        this.mapData = MAPS[mapId] || MAPS['test-short'];
         
-        // Track configuration
-        this.trackWidth = 8;
-        this.checkpoints = [];
+        this.trackWidth = 10;
         this.trackPieces = [];
         
-        // Create track
+        // Generate spline from control points
+        this.generateSpline();
+        
+        // Create track visuals
         this.createTrack();
-        this.createCheckpoints();
+        this.createStartFinish();
+    }
+    
+    generateSpline() {
+        // Convert control points to THREE.Vector3
+        const points = this.mapData.controlPoints.map(p => 
+            new THREE.Vector3(p.x, 0, p.z)
+        );
+        
+        // Create smooth spline curve
+        this.spline = new THREE.CatmullRomCurve3(points, this.mapData.isLoop, 'catmullrom', 0.5);
+        
+        // Sample spline at regular intervals for track path
+        const numSamples = Math.max(100, points.length * 20);
+        this.trackPath = [];
+        
+        for (let i = 0; i <= numSamples; i++) {
+            const t = i / numSamples;
+            const point = this.spline.getPoint(t);
+            this.trackPath.push(point);
+        }
+        
+        console.log(`Track "${this.mapData.name}": ${this.trackPath.length} path points`);
     }
     
     createTrack() {
-        // Simple oval/circuit track using path
-        const trackPoints = this.generateTrackPath();
-        this.trackPath = trackPoints;
-        
-        // Create track surface
-        this.createTrackSurface(trackPoints);
-        
-        // Create track borders/curbs
-        this.createTrackBorders(trackPoints);
-        
-        // Create grass/off-track areas with high friction
-        this.createOffTrackAreas();
-    }
-    
-    createOffTrackAreas() {
-        // Visual grass areas around track
-        // The friction is handled in Vehicle.js by checking distance from track
-    }
-    
-    generateTrackPath() {
-        // Generate a circuit-style track path
-        const points = [];
-        const segments = 64;
-        
-        // Oval with some variation
-        for (let i = 0; i <= segments; i++) {
-            const t = (i / segments) * Math.PI * 2;
-            
-            // Base oval shape
-            let x = Math.sin(t) * 40;
-            let z = Math.cos(t) * 25;
-            
-            // Add some variation
-            x += Math.sin(t * 3) * 5;
-            z += Math.cos(t * 2) * 3;
-            
-            points.push(new THREE.Vector3(x, 0, z));
-        }
-        
-        return points;
-    }
-    
-    createTrackSurface(points) {
-        // Create track as a continuous mesh - asphalt road
         const trackMaterial = new THREE.MeshStandardMaterial({
-            color: 0x444444, // Dark asphalt gray
-            roughness: 0.85,
-            metalness: 0.0
+            color: 0x333333,
+            roughness: 0.9,
+            metalness: 0.1,
+            side: THREE.DoubleSide
         });
         
-        // Build continuous track geometry
-        const vertices = [];
-        const indices = [];
         const halfWidth = this.trackWidth / 2;
         
-        for (let i = 0; i < points.length; i++) {
-            const current = points[i];
-            const next = points[(i + 1) % points.length];
+        for (let i = 0; i < this.trackPath.length - 1; i++) {
+            const current = this.trackPath[i];
+            const next = this.trackPath[i + 1];
             
-            // Calculate perpendicular direction
             const direction = new THREE.Vector3().subVectors(next, current).normalize();
             const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
             
-            // Add left and right vertices
-            const left = current.clone().add(perpendicular.clone().multiplyScalar(halfWidth));
-            const right = current.clone().add(perpendicular.clone().multiplyScalar(-halfWidth));
+            const p1 = current.clone().add(perpendicular.clone().multiplyScalar(halfWidth));
+            const p2 = current.clone().add(perpendicular.clone().multiplyScalar(-halfWidth));
+            const p3 = next.clone().add(perpendicular.clone().multiplyScalar(-halfWidth));
+            const p4 = next.clone().add(perpendicular.clone().multiplyScalar(halfWidth));
             
-            vertices.push(left.x, 0.02, left.z);
-            vertices.push(right.x, 0.02, right.z);
+            const geometry = new THREE.BufferGeometry();
+            const vertices = new Float32Array([
+                p1.x, 0.01, p1.z,
+                p2.x, 0.01, p2.z,
+                p3.x, 0.01, p3.z,
+                p4.x, 0.01, p4.z
+            ]);
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            geometry.setIndex([0, 1, 2, 0, 2, 3]);
+            geometry.computeVertexNormals();
+            
+            const mesh = new THREE.Mesh(geometry, trackMaterial);
+            mesh.receiveShadow = true;
+            this.scene.add(mesh);
+            this.trackPieces.push(mesh);
         }
         
-        // Create indices for triangles
-        for (let i = 0; i < points.length - 1; i++) {
-            const idx = i * 2;
-            // First triangle
-            indices.push(idx, idx + 1, idx + 2);
-            // Second triangle
-            indices.push(idx + 1, idx + 3, idx + 2);
-        }
-        // Close the loop
-        const lastIdx = (points.length - 1) * 2;
-        indices.push(lastIdx, lastIdx + 1, 0);
-        indices.push(lastIdx + 1, 1, 0);
-        
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        geometry.setIndex(indices);
-        geometry.computeVertexNormals();
-        
-        const trackMesh = new THREE.Mesh(geometry, trackMaterial);
-        trackMesh.receiveShadow = true;
-        this.scene.add(trackMesh);
-        this.trackPieces.push(trackMesh);
-        
-        // Add white edge lines
-        this.createEdgeLines(points);
+        // Add edge lines and curbs
+        this.createEdgeLines();
+        this.createCurbs();
     }
     
-    createEdgeLines(points) {
+    createEdgeLines() {
         const lineMaterial = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            roughness: 0.5
+            side: THREE.DoubleSide
         });
         
         const halfWidth = this.trackWidth / 2;
-        const lineWidth = 0.15;
+        const lineWidth = 0.3;
         
-        // Create edge line geometry
         for (const side of [1, -1]) {
-            const lineVertices = [];
-            const lineIndices = [];
-            
-            for (let i = 0; i < points.length; i++) {
-                const current = points[i];
-                const next = points[(i + 1) % points.length];
+            for (let i = 0; i < this.trackPath.length - 1; i++) {
+                const current = this.trackPath[i];
+                const next = this.trackPath[i + 1];
                 
                 const direction = new THREE.Vector3().subVectors(next, current).normalize();
                 const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
                 
-                const outer = current.clone().add(perpendicular.clone().multiplyScalar(side * halfWidth));
-                const inner = current.clone().add(perpendicular.clone().multiplyScalar(side * (halfWidth - lineWidth)));
+                const edgeOffset = halfWidth * side;
+                const innerOffset = (halfWidth - lineWidth) * side;
                 
-                lineVertices.push(outer.x, 0.03, outer.z);
-                lineVertices.push(inner.x, 0.03, inner.z);
+                const p1 = current.clone().add(perpendicular.clone().multiplyScalar(edgeOffset));
+                const p2 = current.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
+                const p3 = next.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
+                const p4 = next.clone().add(perpendicular.clone().multiplyScalar(edgeOffset));
+                
+                const geometry = new THREE.BufferGeometry();
+                const vertices = new Float32Array([
+                    p1.x, 0.02, p1.z,
+                    p2.x, 0.02, p2.z,
+                    p3.x, 0.02, p3.z,
+                    p4.x, 0.02, p4.z
+                ]);
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.setIndex([0, 1, 2, 0, 2, 3]);
+                geometry.computeVertexNormals();
+                
+                const mesh = new THREE.Mesh(geometry, lineMaterial);
+                this.scene.add(mesh);
             }
-            
-            for (let i = 0; i < points.length - 1; i++) {
-                const idx = i * 2;
-                lineIndices.push(idx, idx + 1, idx + 2);
-                lineIndices.push(idx + 1, idx + 3, idx + 2);
-            }
-            
-            const lineGeometry = new THREE.BufferGeometry();
-            lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lineVertices, 3));
-            lineGeometry.setIndex(lineIndices);
-            lineGeometry.computeVertexNormals();
-            
-            const lineMesh = new THREE.Mesh(lineGeometry, lineMaterial);
-            this.scene.add(lineMesh);
         }
     }
     
-    createTrackBorders(points) {
-        // Simple edge markers - small rocks/stones along track edges
-        const rockMaterial = new THREE.MeshStandardMaterial({
-            color: 0x888888,
-            roughness: 0.9
-        });
+    createCurbs() {
+        const redMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333, side: THREE.DoubleSide });
+        const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
         
-        // Place rocks every few segments
-        for (let i = 0; i < points.length - 1; i += 4) {
-            const current = points[i];
-            const next = points[Math.min(i + 1, points.length - 1)];
-            
-            const direction = new THREE.Vector3().subVectors(next, current).normalize();
-            const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
-            
-            const halfWidth = this.trackWidth / 2;
-            
-            // Outer edge rock
-            const outerPos = current.clone().add(perpendicular.clone().multiplyScalar(halfWidth + 0.5));
-            const outerRock = new THREE.Mesh(
-                new THREE.DodecahedronGeometry(0.3 + Math.random() * 0.2, 0),
-                rockMaterial
-            );
-            outerRock.position.copy(outerPos);
-            outerRock.position.y = 0.15;
-            outerRock.rotation.set(Math.random(), Math.random(), Math.random());
-            this.scene.add(outerRock);
-            
-            // Inner edge rock
-            const innerPos = current.clone().add(perpendicular.clone().multiplyScalar(-halfWidth - 0.5));
-            const innerRock = new THREE.Mesh(
-                new THREE.DodecahedronGeometry(0.3 + Math.random() * 0.2, 0),
-                rockMaterial
-            );
-            innerRock.position.copy(innerPos);
-            innerRock.position.y = 0.15;
-            innerRock.rotation.set(Math.random(), Math.random(), Math.random());
-            this.scene.add(innerRock);
-        }
-    }
-    
-    createCheckpoints() {
-        // Create checkpoints around the track (invisible - just collision zones)
-        const numCheckpoints = 8;
-        const step = Math.floor(this.trackPath.length / numCheckpoints);
+        const halfWidth = this.trackWidth / 2;
+        const curbWidth = 0.8;
         
-        for (let i = 0; i < numCheckpoints; i++) {
-            const index = i * step;
-            const point = this.trackPath[index];
-            
-            // Checkpoint data (invisible)
-            const checkpoint = {
-                position: point.clone(),
-                radius: 8, // Larger detection radius
-                index: i
-            };
-            this.checkpoints.push(checkpoint);
-            
-            // Add finish line marker for the last checkpoint
-            if (i === numCheckpoints - 1) {
-                this.createFinishLine(point, index);
+        for (const side of [1, -1]) {
+            for (let i = 0; i < this.trackPath.length - 1; i++) {
+                const current = this.trackPath[i];
+                const next = this.trackPath[i + 1];
+                
+                const direction = new THREE.Vector3().subVectors(next, current).normalize();
+                const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+                
+                const outerOffset = (halfWidth + curbWidth) * side;
+                const innerOffset = halfWidth * side;
+                
+                const p1 = current.clone().add(perpendicular.clone().multiplyScalar(outerOffset));
+                const p2 = current.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
+                const p3 = next.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
+                const p4 = next.clone().add(perpendicular.clone().multiplyScalar(outerOffset));
+                
+                const material = (i % 2 === 0) ? redMaterial : whiteMaterial;
+                
+                const geometry = new THREE.BufferGeometry();
+                const vertices = new Float32Array([
+                    p1.x, 0.015, p1.z,
+                    p2.x, 0.015, p2.z,
+                    p3.x, 0.015, p3.z,
+                    p4.x, 0.015, p4.z
+                ]);
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.setIndex([0, 1, 2, 0, 2, 3]);
+                geometry.computeVertexNormals();
+                
+                const mesh = new THREE.Mesh(geometry, material);
+                this.scene.add(mesh);
             }
         }
-        
-        // Update UI
-        this.game.ui.updateCheckpoint(0, this.checkpoints.length);
     }
     
-    createFinishLine(position, pathIndex) {
-        // Create a checkered finish line pattern on the track
-        const next = this.trackPath[(pathIndex + 1) % this.trackPath.length];
-        const direction = new THREE.Vector3().subVectors(next, position).normalize();
+    createStartFinish() {
+        // START: Use first track point, direction from first to second
+        const startPoint = this.trackPath[0];
+        const startNext = this.trackPath[1];
+        const startDir = new THREE.Vector3().subVectors(startNext, startPoint).normalize();
+        
+        // Create START line (green) slightly before first point
+        const startLinePos = startPoint.clone().sub(startDir.clone().multiplyScalar(2));
+        this.createLineMark(startLinePos, startDir, 0x00ff00, 'START');
+        
+        // FINISH: Use last track point
+        const finishPoint = this.trackPath[this.trackPath.length - 1];
+        const finishPrev = this.trackPath[this.trackPath.length - 2];
+        const finishDir = new THREE.Vector3().subVectors(finishPoint, finishPrev).normalize();
+        
+        // Create FINISH line (checkered)
+        this.createCheckeredLine(finishPoint, finishDir);
+        
+        // Store positions for game logic - car starts AT first track point
+        this.startPos = startPoint.clone();
+        this.startDir = startDir.clone();
+        this.finishLinePos = finishPoint.clone();
+        this.finishLineDir = finishDir.clone();
+        
+        console.log('Track start:', this.startPos.x.toFixed(1), this.startPos.z.toFixed(1));
+        console.log('Track finish:', this.finishLinePos.x.toFixed(1), this.finishLinePos.z.toFixed(1));
+        console.log('Start direction:', this.startDir.x.toFixed(2), this.startDir.z.toFixed(2));
+    }
+    
+    createLineMark(position, direction, color, label) {
         const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+        const material = new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide });
         
-        const finishMaterial1 = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        const finishMaterial2 = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const lineWidth = this.trackWidth;
+        const lineDepth = 0.5;
         
-        const squareSize = 1;
-        const numSquares = Math.floor(this.trackWidth / squareSize);
+        const geometry = new THREE.PlaneGeometry(lineWidth, lineDepth);
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.copy(position);
+        mesh.position.y = 0.03;
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.rotation.z = Math.atan2(perpendicular.x, perpendicular.z);
         
-        for (let i = 0; i < numSquares; i++) {
-            for (let j = 0; j < 2; j++) {
-                const material = (i + j) % 2 === 0 ? finishMaterial1 : finishMaterial2;
+        this.scene.add(mesh);
+    }
+    
+    createCheckeredLine(position, direction) {
+        const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+        const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+        const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.DoubleSide });
+        
+        const squareSize = 1.2;
+        const numSquaresWidth = Math.floor(this.trackWidth / squareSize);
+        const numSquaresDepth = 3;
+        
+        for (let i = 0; i < numSquaresWidth; i++) {
+            for (let j = 0; j < numSquaresDepth; j++) {
+                const material = (i + j) % 2 === 0 ? whiteMat : blackMat;
+                
                 const square = new THREE.Mesh(
                     new THREE.PlaneGeometry(squareSize, squareSize),
                     material
                 );
                 
-                const offset = perpendicular.clone().multiplyScalar((i - numSquares / 2 + 0.5) * squareSize);
-                const forwardOffset = direction.clone().multiplyScalar(j * squareSize - squareSize / 2);
+                const offsetPerp = perpendicular.clone().multiplyScalar((i - numSquaresWidth / 2 + 0.5) * squareSize);
+                const offsetDir = direction.clone().multiplyScalar((j - numSquaresDepth / 2 + 0.5) * squareSize);
                 
-                square.position.copy(position).add(offset).add(forwardOffset);
-                square.position.y = 0.04;
+                square.position.copy(position).add(offsetPerp).add(offsetDir);
+                square.position.y = 0.03;
                 square.rotation.x = -Math.PI / 2;
                 
                 this.scene.add(square);
             }
         }
+    }
+    
+    // Get map ID for leaderboard separation
+    getMapId() {
+        return this.mapId;
+    }
+    
+    // Static method to get available maps
+    static getAvailableMaps() {
+        return Object.keys(MAPS).map(id => ({
+            id,
+            name: MAPS[id].name,
+            isLoop: MAPS[id].isLoop
+        }));
     }
 }

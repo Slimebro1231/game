@@ -7,6 +7,7 @@ import { GhostManager } from '../game/GhostManager.js';
 import { Track } from '../game/Track.js';
 import { Vehicle } from '../game/Vehicle.js';
 import { InputManager } from './InputManager.js';
+import { inputRecorder } from './InputRecorder.js';
 import { UIManager } from './UIManager.js';
 import { World } from './World.js';
 
@@ -24,10 +25,6 @@ export class Game {
         this.currentCheckpoint = 0;
         this.checkpointTimes = [];
         
-        // Recording for ghost replay
-        this.recording = [];
-        this.recordInterval = 50; // Record position every 50ms
-        this.lastRecordTime = 0;
     }
     
     init() {
@@ -43,8 +40,19 @@ export class Game {
         
         // Initialize game objects
         this.world = new World(this);
-        this.track = new Track(this);
+        this.currentMapId = 'test-short'; // Default map
+        
+        // Create vehicle first (with default position)
         this.vehicle = new Vehicle(this);
+        
+        // Create track (will set vehicle start position)
+        this.track = new Track(this, this.currentMapId);
+        
+        // Ensure vehicle is at track start
+        this.positionVehicleAtStart();
+        
+        // Initialize ghost manager with current map
+        this.ghostManager.initForMap(this.currentMapId);
         
         // Position camera
         this.updateCameraPosition();
@@ -58,6 +66,12 @@ export class Game {
         
         // Expose API for future scripting
         this.setupAPI();
+        
+        // Show start screen
+        this.ui.showStartScreen();
+        
+        // Track lap detection
+        this.hasLeftStart = false;
     }
     
     setupRenderer() {
@@ -161,22 +175,32 @@ export class Game {
     }
     
     update(delta) {
+        // Get current input state
+        const inputState = this.input.getState();
+        
         // Update race time
         if (this.raceStarted && !this.raceFinished) {
             this.raceTime += delta * 1000;
             this.ui.updateTimer(this.raceTime);
             
-            // Record position for ghost
-            if (this.raceTime - this.lastRecordTime >= this.recordInterval) {
-                this.recordPosition();
-                this.lastRecordTime = this.raceTime;
-            }
+            // Check for lap completion
+            this.checkLapCompletion();
         }
         
-        // Update vehicle
-        if (this.vehicle) {
-            this.vehicle.update(delta, this.input.getState());
+        // Update vehicle (only if race started)
+        if (this.vehicle && this.raceStarted) {
+            this.vehicle.update(delta, inputState);
             this.ui.updateSpeed(this.vehicle.getSpeed());
+            
+            // Record snapshot for ghost replay (position-based, like Trackmania)
+            if (!this.raceFinished) {
+                inputRecorder.recordFrame(
+                    this.raceTime,
+                    this.vehicle.mesh.position,
+                    this.vehicle.mesh.rotation,
+                    this.vehicle.velocity
+                );
+            }
         }
         
         // Update camera
@@ -185,9 +209,44 @@ export class Game {
         // Update ghosts
         this.ghostManager.update(this.raceTime);
         
-        // Check for reset input
-        if (this.input.getState().reset) {
+        // Check for reset input (only during race)
+        if (this.raceStarted && !this.raceFinished && inputState.reset) {
             this.resetRace();
+        }
+    }
+    
+    checkLapCompletion() {
+        if (!this.vehicle || !this.track || !this.track.finishLinePos) return;
+        
+        const vehiclePos = this.vehicle.mesh.position;
+        const finishPos = this.track.finishLinePos;
+        const startPos = this.track.startPos || this.vehicle.startPosition;
+        
+        // Distance from finish line (2D)
+        const distToFinish = Math.sqrt(
+            Math.pow(vehiclePos.x - finishPos.x, 2) + 
+            Math.pow(vehiclePos.z - finishPos.z, 2)
+        );
+        
+        // Distance from start (to ensure player has traveled)
+        const distFromStart = Math.sqrt(
+            Math.pow(vehiclePos.x - startPos.x, 2) + 
+            Math.pow(vehiclePos.z - startPos.z, 2)
+        );
+        
+        const finishRadius = 10;
+        
+        // For point-to-point: must be far from start OR have enough race time
+        if (!this.hasLeftStart && (distFromStart > 30 || this.raceTime > 3000)) {
+            this.hasLeftStart = true;
+        }
+        
+        // Check if reached finish line
+        if (this.hasLeftStart && distToFinish < finishRadius) {
+            // Minimum race time to prevent exploits
+            if (this.raceTime > 3000) {
+                this.finishRace();
+            }
         }
     }
     
@@ -195,24 +254,18 @@ export class Game {
         this.renderer.render(this.scene, this.camera);
     }
     
-    recordPosition() {
-        if (!this.vehicle || !this.vehicle.mesh) return;
-        
-        this.recording.push({
-            time: this.raceTime,
-            position: this.vehicle.mesh.position.clone(),
-            rotation: this.vehicle.mesh.rotation.clone(),
-            velocity: this.vehicle.velocity.clone()
-        });
-    }
-    
     startRace() {
         this.raceStarted = true;
         this.raceTime = 0;
-        this.recording = [];
-        this.lastRecordTime = 0;
         this.currentCheckpoint = 0;
         this.checkpointTimes = [];
+        this.hasLeftStart = false;
+        
+        // Start input recording
+        inputRecorder.startRecording();
+        
+        // Start ghost replays
+        this.ghostManager.startGhosts();
     }
     
     passCheckpoint(checkpointIndex) {
@@ -230,7 +283,18 @@ export class Game {
     
     finishRace() {
         this.raceFinished = true;
-        this.ui.showFinishScreen(this.raceTime, this.recording);
+        
+        // Stop input recording and get frames
+        const inputFrames = inputRecorder.stopRecording();
+        
+        // Submit run to ghost manager (validates and stores if top 10)
+        this.ghostManager.submitRun('Player', this.raceTime, inputFrames).then(result => {
+            // Show finish screen with result
+            this.ui.showFinishScreen(this.raceTime, inputFrames, result);
+        });
+        
+        // Hide ghosts during finish screen
+        this.ghostManager.hideGhosts();
     }
     
     resetRace() {
@@ -239,19 +303,59 @@ export class Game {
         this.raceTime = 0;
         this.currentCheckpoint = 0;
         this.checkpointTimes = [];
-        this.recording = [];
-        this.lastRecordTime = 0;
+        this.hasLeftStart = false;
         
-        if (this.vehicle) {
-            this.vehicle.reset();
-        }
+        this.positionVehicleAtStart();
         
         this.ui.hideFinishScreen();
         this.ui.updateTimer(0);
-        this.ui.updateCheckpoint(0, this.track.checkpoints.length);
         
-        // Start race after a brief moment
-        setTimeout(() => this.startRace(), 500);
+        // Start race immediately (called from UI after pressing space)
+        this.startRace();
+    }
+    
+    positionVehicleAtStart() {
+        if (!this.vehicle || !this.track) return;
+        
+        const startPos = this.track.startPos;
+        const startDir = this.track.startDir;
+        
+        if (startPos && startDir) {
+            this.vehicle.startPosition.copy(startPos);
+            this.vehicle.startPosition.y = 0.5;
+            
+            // Calculate angle from direction vector
+            const angle = Math.atan2(startDir.x, startDir.z);
+            this.vehicle.startRotation.set(0, angle, 0);
+            this.vehicle.reset();
+            
+            console.log('Vehicle positioned at:', startPos.x.toFixed(1), startPos.z.toFixed(1), 
+                        'facing:', (angle * 180 / Math.PI).toFixed(1), 'deg');
+        }
+    }
+    
+    switchMap(mapId) {
+        if (mapId === this.currentMapId) return;
+        
+        console.log('Switching to map:', mapId);
+        this.currentMapId = mapId;
+        
+        // Remove old track
+        this.track.trackPieces.forEach(piece => this.scene.remove(piece));
+        
+        // Clear scene of track-related objects (keep world, vehicle, lights)
+        const toRemove = [];
+        this.scene.traverse(obj => {
+            if (obj.userData.isTrack) toRemove.push(obj);
+        });
+        toRemove.forEach(obj => this.scene.remove(obj));
+        
+        // Create new track
+        this.track = new Track(this, mapId);
+        this.positionVehicleAtStart();
+        
+        // Reinitialize ghost manager for new map
+        this.ghostManager.initForMap(mapId);
     }
     
     onResize() {
