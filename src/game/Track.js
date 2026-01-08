@@ -156,45 +156,105 @@ export class Track {
     }
     
     createCurbs() {
-        // More natural curb colors - warm brown and cream
-        const redMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513, side: THREE.DoubleSide });
-        const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xf5e6d3, side: THREE.DoubleSide });
-        
+        // Create elevated semicircular curbs as continuous meshes
         const halfWidth = this.trackWidth / 2;
-        const curbWidth = 0.8;
+        const curbWidth = 1.0;
+        const curbHeight = 0.25;
+        const curbSegments = 6; // Segments for semicircle profile
+        
+        // Material with vertex colors for stripes
+        const curbMaterial = new THREE.MeshStandardMaterial({ 
+            vertexColors: true,
+            roughness: 0.7,
+            metalness: 0.1
+        });
+        
+        // Colors for stripes
+        const color1 = new THREE.Color(0x8b4513); // Brown
+        const color2 = new THREE.Color(0xf5e6d3); // Cream
         
         for (const side of [1, -1]) {
-            for (let i = 0; i < this.trackPath.length - 1; i++) {
+            const vertices = [];
+            const colors = [];
+            const indices = [];
+            
+            const pathLen = this.trackPath.length;
+            
+            for (let i = 0; i < pathLen; i++) {
                 const current = this.trackPath[i];
-                const next = this.trackPath[i + 1];
+                const next = this.trackPath[(i + 1) % pathLen];
+                const prev = this.trackPath[(i - 1 + pathLen) % pathLen];
                 
-                const direction = new THREE.Vector3().subVectors(next, current).normalize();
-                const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+                // Average direction for smooth transitions
+                const dirNext = new THREE.Vector3().subVectors(next, current).normalize();
+                const dirPrev = new THREE.Vector3().subVectors(current, prev).normalize();
+                const direction = new THREE.Vector3().addVectors(dirNext, dirPrev).normalize();
                 
-                const outerOffset = (halfWidth + curbWidth) * side;
-                const innerOffset = halfWidth * side;
+                const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x).multiplyScalar(side);
                 
-                const p1 = current.clone().add(perpendicular.clone().multiplyScalar(outerOffset));
-                const p2 = current.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
-                const p3 = next.clone().add(perpendicular.clone().multiplyScalar(innerOffset));
-                const p4 = next.clone().add(perpendicular.clone().multiplyScalar(outerOffset));
+                // Base position at track edge
+                const basePos = current.clone().add(perpendicular.clone().multiplyScalar(halfWidth));
                 
-                const material = (i % 2 === 0) ? redMaterial : whiteMaterial;
+                // Stripe color based on distance along track
+                const stripeIndex = Math.floor(i / 3); // Change color every 3 segments
+                const stripeColor = (stripeIndex % 2 === 0) ? color1 : color2;
                 
-                const geometry = new THREE.BufferGeometry();
-                const vertices = new Float32Array([
-                    p1.x, 0.015, p1.z,
-                    p2.x, 0.015, p2.z,
-                    p3.x, 0.015, p3.z,
-                    p4.x, 0.015, p4.z
-                ]);
-                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-                geometry.setIndex([0, 1, 2, 0, 2, 3]);
-                geometry.computeVertexNormals();
-                
-                const mesh = new THREE.Mesh(geometry, material);
-                this.addTrackMesh(mesh);
+                // Create semicircular profile points
+                for (let j = 0; j <= curbSegments; j++) {
+                    const angle = (j / curbSegments) * Math.PI; // 0 to PI for semicircle
+                    const localX = Math.cos(angle) * curbWidth * 0.5; // Horizontal offset
+                    const localY = Math.sin(angle) * curbHeight; // Vertical offset
+                    
+                    // Position in world space
+                    const offset = perpendicular.clone().multiplyScalar(localX + curbWidth * 0.5);
+                    const x = basePos.x + offset.x;
+                    const y = localY;
+                    const z = basePos.z + offset.z;
+                    
+                    vertices.push(x, y, z);
+                    colors.push(stripeColor.r, stripeColor.g, stripeColor.b);
+                }
             }
+            
+            // Create indices for the mesh (connect profile rings)
+            const vertsPerRing = curbSegments + 1;
+            for (let i = 0; i < pathLen - 1; i++) {
+                for (let j = 0; j < curbSegments; j++) {
+                    const a = i * vertsPerRing + j;
+                    const b = i * vertsPerRing + j + 1;
+                    const c = (i + 1) * vertsPerRing + j;
+                    const d = (i + 1) * vertsPerRing + j + 1;
+                    
+                    // Two triangles per quad
+                    indices.push(a, c, b);
+                    indices.push(b, c, d);
+                }
+            }
+            
+            // Close the loop if it's a loop track
+            if (this.mapData.isLoop) {
+                const lastRing = (pathLen - 1) * vertsPerRing;
+                for (let j = 0; j < curbSegments; j++) {
+                    const a = lastRing + j;
+                    const b = lastRing + j + 1;
+                    const c = j;
+                    const d = j + 1;
+                    
+                    indices.push(a, c, b);
+                    indices.push(b, c, d);
+                }
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            
+            const mesh = new THREE.Mesh(geometry, curbMaterial);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.addTrackMesh(mesh);
         }
     }
     
