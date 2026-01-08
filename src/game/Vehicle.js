@@ -34,96 +34,170 @@ export class Vehicle {
     }
     
     createMesh() {
-        // Create a stylized low-poly car
+        // Create a sleek futuristic racing car
         const group = new THREE.Group();
         
-        // Car body - main chassis
-        const bodyGeometry = new THREE.BoxGeometry(2, 0.6, 4);
+        // Main body material - glossy with neon glow
         const bodyMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a2e,
+            roughness: 0.2,
+            metalness: 0.9,
+        });
+        
+        const accentMaterial = new THREE.MeshStandardMaterial({
             color: 0x00ff88,
-            roughness: 0.3,
-            metalness: 0.8,
             emissive: 0x00ff88,
-            emissiveIntensity: 0.1
+            emissiveIntensity: 0.5,
+            roughness: 0.3,
+            metalness: 0.8
         });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = 0.3;
-        body.castShadow = true;
-        group.add(body);
         
-        // Cockpit
-        const cockpitGeometry = new THREE.BoxGeometry(1.5, 0.5, 2);
-        const cockpitMaterial = new THREE.MeshStandardMaterial({
-            color: 0x003322,
+        // Lower body - sleek wedge shape
+        const lowerBodyShape = new THREE.Shape();
+        lowerBodyShape.moveTo(-0.9, 0);
+        lowerBodyShape.lineTo(-0.7, 1.8);    // Front taper
+        lowerBodyShape.lineTo(0.7, 1.8);
+        lowerBodyShape.lineTo(0.9, 0);
+        lowerBodyShape.lineTo(0.9, -1.8);    // Rear
+        lowerBodyShape.lineTo(-0.9, -1.8);
+        lowerBodyShape.closePath();
+        
+        const extrudeSettings = { depth: 0.4, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05 };
+        const lowerBodyGeo = new THREE.ExtrudeGeometry(lowerBodyShape, extrudeSettings);
+        lowerBodyGeo.rotateX(-Math.PI / 2);
+        const lowerBody = new THREE.Mesh(lowerBodyGeo, bodyMaterial);
+        lowerBody.position.y = 0.2;
+        lowerBody.castShadow = true;
+        group.add(lowerBody);
+        
+        // Cockpit canopy - curved glass look
+        const canopyShape = new THREE.Shape();
+        canopyShape.moveTo(-0.5, 0);
+        canopyShape.quadraticCurveTo(-0.5, 0.8, 0, 1);
+        canopyShape.quadraticCurveTo(0.5, 0.8, 0.5, 0);
+        canopyShape.closePath();
+        
+        const canopyGeo = new THREE.ExtrudeGeometry(canopyShape, { depth: 1.2, bevelEnabled: true, bevelThickness: 0.02 });
+        canopyGeo.rotateX(-Math.PI / 2);
+        const canopyMaterial = new THREE.MeshStandardMaterial({
+            color: 0x003333,
             roughness: 0.1,
-            metalness: 0.9
+            metalness: 0.95,
+            transparent: true,
+            opacity: 0.8
         });
-        const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
-        cockpit.position.set(0, 0.7, -0.3);
-        cockpit.castShadow = true;
-        group.add(cockpit);
+        const canopy = new THREE.Mesh(canopyGeo, canopyMaterial);
+        canopy.position.set(0, 0.55, -0.3);
+        canopy.castShadow = true;
+        group.add(canopy);
         
-        // Wheels
-        const wheelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
-        const wheelMaterial = new THREE.MeshStandardMaterial({
-            color: 0x222222,
-            roughness: 0.8,
-            metalness: 0.2
+        // Side accent stripes (neon)
+        const stripeGeo = new THREE.BoxGeometry(0.08, 0.15, 3);
+        const leftStripe = new THREE.Mesh(stripeGeo, accentMaterial);
+        leftStripe.position.set(-0.85, 0.35, 0);
+        group.add(leftStripe);
+        
+        const rightStripe = new THREE.Mesh(stripeGeo, accentMaterial);
+        rightStripe.position.set(0.85, 0.35, 0);
+        group.add(rightStripe);
+        
+        // Front splitter accent
+        const splitterGeo = new THREE.BoxGeometry(1.6, 0.05, 0.15);
+        const splitter = new THREE.Mesh(splitterGeo, accentMaterial);
+        splitter.position.set(0, 0.15, 1.9);
+        group.add(splitter);
+        
+        // Rear diffuser accent
+        const diffuserGeo = new THREE.BoxGeometry(1.4, 0.05, 0.2);
+        const diffuser = new THREE.Mesh(diffuserGeo, accentMaterial);
+        diffuser.position.set(0, 0.15, -1.85);
+        group.add(diffuser);
+        
+        // Rear wing
+        const wingPostGeo = new THREE.BoxGeometry(0.08, 0.4, 0.08);
+        const wingPost1 = new THREE.Mesh(wingPostGeo, bodyMaterial);
+        wingPost1.position.set(-0.5, 0.7, -1.6);
+        group.add(wingPost1);
+        const wingPost2 = new THREE.Mesh(wingPostGeo, bodyMaterial);
+        wingPost2.position.set(0.5, 0.7, -1.6);
+        group.add(wingPost2);
+        
+        const wingGeo = new THREE.BoxGeometry(1.4, 0.06, 0.35);
+        const wing = new THREE.Mesh(wingGeo, accentMaterial);
+        wing.position.set(0, 0.95, -1.6);
+        wing.rotation.x = -0.15;
+        group.add(wing);
+        
+        // Wheels - larger with glowing rims
+        const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 24);
+        const wheelMat = new THREE.MeshStandardMaterial({
+            color: 0x111111,
+            roughness: 0.7,
+            metalness: 0.3
+        });
+        
+        const rimGeo = new THREE.TorusGeometry(0.28, 0.04, 8, 24);
+        const rimMat = new THREE.MeshStandardMaterial({
+            color: 0x00ff88,
+            emissive: 0x00ff88,
+            emissiveIntensity: 0.3
         });
         
         const wheelPositions = [
-            [-0.9, 0, 1.3],  // Front left
-            [0.9, 0, 1.3],   // Front right
-            [-0.9, 0, -1.3], // Rear left
-            [0.9, 0, -1.3]   // Rear right
+            [-0.85, 0.35, 1.2],   // Front left
+            [0.85, 0.35, 1.2],    // Front right
+            [-0.85, 0.35, -1.2],  // Rear left
+            [0.85, 0.35, -1.2]    // Rear right
         ];
         
         this.wheels = [];
-        wheelPositions.forEach(pos => {
-            const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+        wheelPositions.forEach((pos, i) => {
+            const wheelGroup = new THREE.Group();
+            
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
             wheel.rotation.z = Math.PI / 2;
-            wheel.position.set(pos[0], pos[1], pos[2]);
-            wheel.castShadow = true;
-            group.add(wheel);
-            this.wheels.push(wheel);
+            wheelGroup.add(wheel);
+            
+            // Glowing rim
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            rim.rotation.y = Math.PI / 2;
+            rim.position.x = i % 2 === 0 ? -0.13 : 0.13;
+            wheelGroup.add(rim);
+            
+            wheelGroup.position.set(pos[0], pos[1], pos[2]);
+            wheelGroup.castShadow = true;
+            group.add(wheelGroup);
+            this.wheels.push(wheelGroup);
         });
         
-        // Headlights (emissive)
-        const lightGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
-        const lightMaterial = new THREE.MeshStandardMaterial({
+        // Headlights - sleek LED strips
+        const headlightGeo = new THREE.BoxGeometry(0.6, 0.08, 0.05);
+        const headlightMat = new THREE.MeshStandardMaterial({
             color: 0xffffff,
             emissive: 0xffffff,
-            emissiveIntensity: 1
+            emissiveIntensity: 1.5
         });
         
-        const leftLight = new THREE.Mesh(lightGeometry, lightMaterial);
-        leftLight.position.set(-0.6, 0.3, 2);
-        group.add(leftLight);
+        const headlight = new THREE.Mesh(headlightGeo, headlightMat);
+        headlight.position.set(0, 0.4, 1.85);
+        group.add(headlight);
         
-        const rightLight = new THREE.Mesh(lightGeometry, lightMaterial);
-        rightLight.position.set(0.6, 0.3, 2);
-        group.add(rightLight);
-        
-        // Tail lights
-        const tailLightMaterial = new THREE.MeshStandardMaterial({
-            color: 0xff0000,
-            emissive: 0xff0000,
-            emissiveIntensity: 0.5
+        // Tail lights - full width LED bar
+        const tailLightGeo = new THREE.BoxGeometry(1.2, 0.06, 0.05);
+        const tailLightMat = new THREE.MeshStandardMaterial({
+            color: 0xff0044,
+            emissive: 0xff0044,
+            emissiveIntensity: 0.8
         });
         
-        const leftTail = new THREE.Mesh(lightGeometry, tailLightMaterial);
-        leftTail.position.set(-0.6, 0.3, -2);
-        group.add(leftTail);
-        this.leftTailLight = leftTail;
+        const tailLight = new THREE.Mesh(tailLightGeo, tailLightMat);
+        tailLight.position.set(0, 0.45, -1.85);
+        group.add(tailLight);
+        this.tailLight = tailLight;
         
-        const rightTail = new THREE.Mesh(lightGeometry, tailLightMaterial);
-        rightTail.position.set(0.6, 0.3, -2);
-        group.add(rightTail);
-        this.rightTailLight = rightTail;
-        
-        // Debug: show forward direction
-        // const arrowHelper = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), 3, 0xff0000);
-        // group.add(arrowHelper);
+        // Store reference for tail light brightness
+        this.leftTailLight = { material: tailLightMat };
+        this.rightTailLight = { material: tailLightMat };
         
         this.mesh = group;
         this.mesh.position.copy(this.startPosition);
@@ -178,34 +252,37 @@ export class Vehicle {
             this.velocity.multiplyScalar(0.92);
         }
         
-        // Handbrake/Space (for drifting)
+        // Handbrake/Space (for drifting) - NO speed penalty!
         this.isHandbraking = input.handbrake;
-        if (this.isHandbraking && Math.abs(currentSpeed) > 5) {
-            // Dramatically reduce lateral grip - allow car to slide sideways
+        if (this.isHandbraking && Math.abs(currentSpeed) > 3) {
+            // Reduce lateral grip to allow sliding - but keep forward momentum
             const lateralVel = right.clone().multiplyScalar(this.velocity.dot(right));
-            // Only remove a small amount of lateral velocity = more slide
             this.velocity.sub(lateralVel.multiplyScalar(this.driftGrip));
-            // Slight speed reduction during drift
-            this.velocity.multiplyScalar(0.985);
+            // NO slowdown during drift - this is key for fun drifting!
         }
         
-        // Steering with A/D (always responsive)
-        const steerAmount = Math.abs(currentSpeed) > 0.5 ? 1 : Math.max(0.3, Math.abs(currentSpeed) / 0.5);
+        // Steering with A/D - SHARPER at low speeds, gentler at high speeds
+        const absSpeed = Math.abs(currentSpeed);
+        // At low speed: turn sharply. At high speed: turn less sharply
+        const speedFactor = absSpeed < 10 ? 1.5 : Math.max(0.6, 1 - (absSpeed - 10) / 40);
+        const turnRate = this.turnSpeed * speedFactor;
         
         if (input.left) {
-            this.steering = Math.min(this.steering + this.turnSpeed * delta * 1.5, this.maxSteering);
+            this.steering = Math.min(this.steering + turnRate * delta * 2, this.maxSteering);
         } else if (input.right) {
-            this.steering = Math.max(this.steering - this.turnSpeed * delta * 1.5, -this.maxSteering);
+            this.steering = Math.max(this.steering - turnRate * delta * 2, -this.maxSteering);
         } else {
-            // Return steering to center
-            this.steering *= 0.85;
+            // Return steering to center quickly
+            this.steering *= 0.8;
         }
         
-        // Apply steering rotation
+        // Apply steering rotation - sharper at low speed
         if (Math.abs(currentSpeed) > 0.1) {
-            const turnAmount = this.steering * steerAmount;
-            const driftMultiplier = this.isHandbraking ? this.handbrakeMultiplier : 1;
-            this.mesh.rotation.y += turnAmount * delta * driftMultiplier;
+            // Low speed = tighter turns, high speed = wider turns
+            const lowSpeedBonus = absSpeed < 8 ? 1.8 : 1;
+            const driftBonus = this.isHandbraking ? this.handbrakeMultiplier : 1;
+            const turnAmount = this.steering * lowSpeedBonus * driftBonus;
+            this.mesh.rotation.y += turnAmount * delta;
         }
         
         // Check if off-track (high friction zone)
@@ -222,16 +299,18 @@ export class Vehicle {
             this.velocity.normalize().multiplyScalar(effectiveMaxSpeed);
         }
         
-        // Apply friction
-        let frictionMultiplier = this.isHandbraking ? 0.99 : this.friction;
+        // Apply friction - drifting should NOT slow you down
+        let frictionMultiplier = this.isHandbraking ? 0.995 : this.friction; // Almost no slowdown when drifting
         if (offTrackFriction) {
             frictionMultiplier = 0.92; // High friction off-track
         }
         this.velocity.multiplyScalar(Math.pow(frictionMultiplier, delta * 60));
         
-        // Lateral friction (prevent sliding sideways - or allow it during drift)
+        // Lateral friction - controls how much the car slides sideways
         const lateralVel = right.clone().multiplyScalar(this.velocity.dot(right));
-        const lateralFriction = this.isHandbraking ? 0.02 : 0.15; // Much less grip when drifting
+        // When drifting: very little lateral grip = lots of slide
+        // When normal: high lateral grip = car goes where it's pointing
+        const lateralFriction = this.isHandbraking ? 0.01 : 0.2;
         this.velocity.sub(lateralVel.multiplyScalar(lateralFriction));
         
         // Update position

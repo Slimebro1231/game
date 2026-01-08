@@ -15,7 +15,7 @@ export class World {
         
         this.createGround();
         this.createGrid();
-        this.createVortex();
+        // this.createVortex(); // Disabled - camera angle doesn't show it well
         this.createAtmosphere();
         this.createAmbientParticles();
     }

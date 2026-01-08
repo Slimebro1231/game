@@ -1,175 +1,175 @@
 /**
- * Map definitions - Famous F1 track layouts (simplified)
- * Scaled to fit game world (~200 unit max dimension)
+ * Map definitions - Famous F1-inspired track layouts (non-overlapping)
+ * Scaled larger for longer races
  */
 
 export const MAPS = {
-    // Monaco GP - Tight, technical street circuit
+    // Monaco - Extended street circuit (no overlaps)
     'monaco': {
         name: 'Monaco',
-        description: 'Tight street circuit - technical corners',
+        description: 'Tight street circuit with elevation',
         controlPoints: [
-            { x: 0, z: 0 },        // Start/Finish
-            { x: 30, z: 5 },       // Sainte Devote approach
-            { x: 45, z: 25 },      // Sainte Devote
-            { x: 50, z: 60 },      // Casino climb
-            { x: 35, z: 80 },      // Casino Square
-            { x: 10, z: 75 },      // Mirabeau
-            { x: -5, z: 55 },      // Hairpin
-            { x: 5, z: 35 },       // Portier
-            { x: 25, z: 20 },      // Tunnel approach
-            { x: 50, z: 15 },      // Tunnel exit
-            { x: 70, z: 5 },       // Chicane
-            { x: 60, z: -15 },     // Swimming pool
-            { x: 35, z: -20 },     // La Rascasse
-            { x: 10, z: -10 },     // Anthony Noghes
-            { x: 0, z: 0 },        // Back to start
+            { x: 0, z: 0 },
+            { x: 50, z: 10 },
+            { x: 90, z: 40 },
+            { x: 100, z: 90 },
+            { x: 70, z: 130 },
+            { x: 20, z: 140 },
+            { x: -30, z: 120 },
+            { x: -60, z: 80 },
+            { x: -80, z: 30 },
+            { x: -60, z: -20 },
+            { x: -20, z: -30 },
+            { x: 0, z: 0 },
         ],
         isLoop: true,
-        color: '#e74c3c' // Monaco red
+        color: '#e74c3c'
     },
     
-    // Monza - Temple of Speed, long straights
+    // Monza - Long straights, wide sweeping turns
     'monza': {
         name: 'Monza',
         description: 'Temple of Speed - long straights',
         controlPoints: [
-            { x: 0, z: 0 },        // Start
-            { x: 80, z: 0 },       // Main straight
-            { x: 100, z: -10 },    // Variante del Rettifilo
-            { x: 95, z: -30 },     
-            { x: 110, z: -50 },    // Curva Grande approach
-            { x: 130, z: -80 },    // Curva Grande
-            { x: 110, z: -100 },   
-            { x: 80, z: -95 },     // Variante della Roggia
-            { x: 60, z: -105 },    
-            { x: 40, z: -90 },     // Lesmo 1
-            { x: 30, z: -70 },     // Lesmo 2
-            { x: 40, z: -45 },     // Serraglio
-            { x: 25, z: -25 },     // Ascari chicane
-            { x: 10, z: -35 },     
-            { x: -10, z: -20 },    // Parabolica entry
-            { x: -15, z: 0 },      // Parabolica
-            { x: 0, z: 0 },        // Finish
+            { x: 0, z: 0 },
+            { x: 120, z: 0 },
+            { x: 160, z: -30 },
+            { x: 170, z: -80 },
+            { x: 140, z: -130 },
+            { x: 80, z: -150 },
+            { x: 20, z: -140 },
+            { x: -30, z: -110 },
+            { x: -50, z: -60 },
+            { x: -40, z: -10 },
+            { x: 0, z: 0 },
         ],
         isLoop: true,
-        color: '#2ecc71' // Monza green
+        color: '#2ecc71'
     },
     
-    // Silverstone - Fast flowing corners
+    // Silverstone - Flowing high-speed corners
     'silverstone': {
         name: 'Silverstone',
-        description: 'High-speed flowing circuit',
+        description: 'High-speed flowing corners',
         controlPoints: [
-            { x: 0, z: 0 },        // Start
-            { x: 40, z: 5 },       // Wellington Straight
-            { x: 70, z: 20 },      // Brooklands
-            { x: 85, z: 45 },      // Luffield
-            { x: 70, z: 70 },      // Woodcote approach
-            { x: 40, z: 80 },      // Copse
-            { x: 10, z: 85 },      // Maggotts
-            { x: -20, z: 70 },     // Becketts
-            { x: -35, z: 45 },     // Chapel
-            { x: -50, z: 20 },     // Hangar Straight
-            { x: -45, z: -10 },    // Stowe
-            { x: -25, z: -25 },    // Vale
-            { x: 0, z: -20 },      // Club
-            { x: 0, z: 0 },        // Back to start
+            { x: 0, z: 0 },
+            { x: 60, z: 20 },
+            { x: 120, z: 60 },
+            { x: 140, z: 120 },
+            { x: 100, z: 160 },
+            { x: 40, z: 170 },
+            { x: -20, z: 150 },
+            { x: -70, z: 110 },
+            { x: -100, z: 50 },
+            { x: -80, z: -10 },
+            { x: -30, z: -20 },
+            { x: 0, z: 0 },
         ],
         isLoop: true,
-        color: '#3498db' // British racing blue
+        color: '#3498db'
     },
     
-    // Spa-Francorchamps - Famous for Eau Rouge
+    // Spa - Long flowing circuit
     'spa': {
         name: 'Spa',
-        description: 'Legendary Eau Rouge - elevation changes',
+        description: 'Legendary Eau Rouge climb',
         controlPoints: [
-            { x: 0, z: 0 },        // La Source hairpin
-            { x: 30, z: -20 },     // Eau Rouge entry (downhill)
-            { x: 50, z: -40 },     // Eau Rouge (valley)
-            { x: 80, z: -30 },     // Raidillon (uphill climb!)
-            { x: 110, z: -10 },    // Kemmel straight
-            { x: 140, z: 5 },      // Les Combes
-            { x: 130, z: 25 },     
-            { x: 100, z: 40 },     // Rivage
-            { x: 70, z: 50 },      // Pouhon
-            { x: 40, z: 45 },      
-            { x: 20, z: 55 },      // Fagnes
-            { x: -10, z: 50 },     // Stavelot
-            { x: -30, z: 35 },     // Paul Frere
-            { x: -40, z: 15 },     // Blanchimont
-            { x: -25, z: -5 },     // Bus Stop chicane
-            { x: 0, z: 0 },        // Back to La Source
+            { x: 0, z: 0 },
+            { x: 40, z: -30 },
+            { x: 100, z: -50 },
+            { x: 160, z: -30 },
+            { x: 200, z: 20 },
+            { x: 190, z: 80 },
+            { x: 140, z: 120 },
+            { x: 70, z: 130 },
+            { x: 10, z: 110 },
+            { x: -30, z: 70 },
+            { x: -40, z: 20 },
+            { x: 0, z: 0 },
         ],
         isLoop: true,
-        color: '#9b59b6' // Belgian purple
+        color: '#9b59b6'
     },
     
-    // Suzuka - Figure 8 crossover
+    // Suzuka - Figure 8 inspired but non-overlapping spiral
     'suzuka': {
         name: 'Suzuka',
-        description: 'Figure-8 layout - unique crossover',
+        description: 'Technical S-curves and hairpins',
         controlPoints: [
-            { x: 0, z: 0 },        // Start
-            { x: 35, z: 10 },      // First curve
-            { x: 60, z: 35 },      // S-curves start
-            { x: 55, z: 55 },      
-            { x: 70, z: 70 },      
-            { x: 50, z: 85 },      // Dunlop curve
-            { x: 20, z: 75 },      // Degner curves
-            { x: 0, z: 55 },       
-            { x: -20, z: 35 },     // Crossover point (goes under)
-            { x: -45, z: 20 },     // Spoon curve
-            { x: -60, z: -5 },     
-            { x: -45, z: -30 },    // 130R
-            { x: -15, z: -35 },    // Casio Triangle
-            { x: 10, z: -20 },     
-            { x: 0, z: 0 },        // Finish
+            { x: 0, z: 0 },
+            { x: 50, z: 30 },
+            { x: 90, z: 80 },
+            { x: 70, z: 130 },
+            { x: 20, z: 150 },
+            { x: -40, z: 140 },
+            { x: -80, z: 100 },
+            { x: -100, z: 40 },
+            { x: -80, z: -20 },
+            { x: -30, z: -40 },
+            { x: 0, z: 0 },
         ],
         isLoop: true,
-        color: '#e67e22' // Japanese orange
+        color: '#e67e22'
     },
     
-    // Nurburgring Nordschleife (simplified) - The Green Hell
+    // Nurburgring - Long technical circuit
     'nurburgring': {
         name: 'Nurburgring',
         description: 'The Green Hell - long and technical',
         controlPoints: [
             { x: 0, z: 0 },
-            { x: 40, z: 15 },
-            { x: 80, z: 5 },
-            { x: 110, z: -20 },
-            { x: 130, z: -55 },
-            { x: 115, z: -90 },
-            { x: 80, z: -110 },
-            { x: 40, z: -105 },
-            { x: 10, z: -85 },
-            { x: -20, z: -60 },
-            { x: -50, z: -40 },
-            { x: -70, z: -10 },
-            { x: -60, z: 25 },
-            { x: -30, z: 40 },
+            { x: 70, z: 20 },
+            { x: 140, z: 10 },
+            { x: 190, z: -30 },
+            { x: 200, z: -100 },
+            { x: 160, z: -160 },
+            { x: 80, z: -180 },
+            { x: 0, z: -170 },
+            { x: -60, z: -130 },
+            { x: -90, z: -70 },
+            { x: -80, z: 0 },
+            { x: -40, z: 30 },
             { x: 0, z: 0 },
         ],
         isLoop: true,
-        color: '#27ae60' // Green Hell
+        color: '#27ae60'
     },
     
-    // Sprint track - Short point-to-point for quick runs
+    // Sprint - Long point-to-point drag strip with curves
     'sprint': {
         name: 'Sprint',
-        description: 'Quick point-to-point run',
+        description: 'Quick point-to-point blast',
         controlPoints: [
             { x: 0, z: 0 },
-            { x: 30, z: 10 },
-            { x: 60, z: -5 },
-            { x: 90, z: 15 },
-            { x: 120, z: 5 },
-            { x: 150, z: -10 },
+            { x: 50, z: 15 },
+            { x: 100, z: -10 },
+            { x: 150, z: 20 },
+            { x: 200, z: 0 },
+            { x: 250, z: -15 },
+            { x: 300, z: 10 },
         ],
         isLoop: false,
-        color: '#f39c12' // Gold
+        color: '#f39c12'
+    },
+    
+    // Laguna Seca - Famous corkscrew
+    'laguna': {
+        name: 'Laguna Seca',
+        description: 'Famous corkscrew section',
+        controlPoints: [
+            { x: 0, z: 0 },
+            { x: 60, z: 10 },
+            { x: 110, z: 50 },
+            { x: 130, z: 110 },
+            { x: 90, z: 150 },
+            { x: 30, z: 160 },
+            { x: -30, z: 130 },
+            { x: -60, z: 70 },
+            { x: -50, z: 10 },
+            { x: 0, z: 0 },
+        ],
+        isLoop: true,
+        color: '#1abc9c'
     }
 };
 
