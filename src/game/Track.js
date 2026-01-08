@@ -70,10 +70,11 @@ export class Track {
     }
     
     createTrack() {
+        // Natural dirt/gravel track color
         const trackMaterial = new THREE.MeshStandardMaterial({
-            color: 0x333333,
-            roughness: 0.9,
-            metalness: 0.1,
+            color: 0x6b5a48,
+            roughness: 0.85,
+            metalness: 0.0,
             side: THREE.DoubleSide
         });
         
@@ -155,8 +156,9 @@ export class Track {
     }
     
     createCurbs() {
-        const redMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333, side: THREE.DoubleSide });
-        const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+        // More natural curb colors - warm brown and cream
+        const redMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513, side: THREE.DoubleSide });
+        const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xf5e6d3, side: THREE.DoubleSide });
         
         const halfWidth = this.trackWidth / 2;
         const curbWidth = 0.8;
@@ -202,9 +204,9 @@ export class Track {
         const startNext = this.trackPath[1];
         const startDir = new THREE.Vector3().subVectors(startNext, startPoint).normalize();
         
-        // Create START line (green) slightly before first point
+        // Create START line (warm gold) slightly before first point
         const startLinePos = startPoint.clone().sub(startDir.clone().multiplyScalar(2));
-        this.createLineMark(startLinePos, startDir, 0x00ff00, 'START');
+        this.createLineMark(startLinePos, startDir, 0xc4a35a, 'START');
         
         // FINISH: Use last track point
         const finishPoint = this.trackPath[this.trackPath.length - 1];

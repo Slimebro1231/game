@@ -93,8 +93,9 @@ export class Game {
     
     setupScene() {
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1a2e);
-        this.scene.fog = new THREE.Fog(0x1a1a2e, 50, 200);
+        // Natural warm beige background (will be overridden by World's sky)
+        this.scene.background = new THREE.Color(0xf5e6d3);
+        this.scene.fog = new THREE.Fog(0xf5e6d3, 150, 500);
     }
     
     setupCamera() {
@@ -110,18 +111,18 @@ export class Game {
     }
     
     setupLights() {
-        // Ambient light for base illumination
-        const ambient = new THREE.AmbientLight(0x404060, 0.5);
+        // Warm ambient light for natural illumination
+        const ambient = new THREE.AmbientLight(0xffeedd, 0.4);
         this.scene.add(ambient);
         
-        // Main directional light (sun)
-        this.sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        this.sunLight.position.set(50, 100, 50);
+        // Main directional light (warm sun)
+        this.sunLight = new THREE.DirectionalLight(0xfff5e0, 1.2);
+        this.sunLight.position.set(80, 120, 60);
         this.sunLight.castShadow = true;
         this.sunLight.shadow.mapSize.width = 2048;
         this.sunLight.shadow.mapSize.height = 2048;
         this.sunLight.shadow.camera.near = 10;
-        this.sunLight.shadow.camera.far = 200;
+        this.sunLight.shadow.camera.far = 300;
         this.sunLight.shadow.camera.left = -50;
         this.sunLight.shadow.camera.right = 50;
         this.sunLight.shadow.camera.top = 50;

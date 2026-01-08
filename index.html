@@ -9,23 +9,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0a0a15;
-            --text-color: #ffffff;
-            --accent: #00ff88;
-            --accent-dim: #00aa66;
-            --accent-glow: rgba(0, 255, 136, 0.3);
-            --ui-bg: rgba(10, 10, 21, 0.85);
-            --border: rgba(0, 255, 136, 0.2);
+            /* Natural/earthy theme */
+            --bg-color: #f5f0e6;
+            --text-color: #3d3428;
+            --accent: #8b6914;
+            --accent-dim: #6b5010;
+            --accent-glow: rgba(139, 105, 20, 0.25);
+            --ui-bg: rgba(245, 240, 230, 0.92);
+            --border: rgba(139, 105, 20, 0.2);
+            --track-color: #5c5040;
+            --grass-color: #7a9c59;
         }
         
-        .light-mode {
-            --bg-color: #fff5f5;
-            --text-color: #2a2a2a;
-            --accent: #ff6b9d;
-            --accent-dim: #cc5580;
-            --accent-glow: rgba(255, 107, 157, 0.3);
-            --ui-bg: rgba(255, 245, 245, 0.9);
-            --border: rgba(255, 107, 157, 0.2);
+        .dark-mode {
+            --bg-color: #2a2820;
+            --text-color: #f0e8d8;
+            --accent: #c4a35a;
+            --accent-dim: #9a8040;
+            --accent-glow: rgba(196, 163, 90, 0.3);
+            --ui-bg: rgba(42, 40, 32, 0.92);
+            --border: rgba(196, 163, 90, 0.25);
+            --track-color: #6b6050;
+            --grass-color: #5a7c49;
         }
         
         * {
@@ -140,14 +145,14 @@
             z-index: 200;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            background: rgba(10, 10, 21, 0.6);
+            background: rgba(245, 240, 230, 0.7);
             justify-content: center;
             align-items: center;
             flex-direction: column;
         }
         
-        .light-mode .overlay-screen {
-            background: rgba(255, 245, 245, 0.6);
+        .dark-mode .overlay-screen {
+            background: rgba(42, 40, 32, 0.7);
         }
         
         /* Track Selection */

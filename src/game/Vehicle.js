@@ -34,22 +34,23 @@ export class Vehicle {
     }
     
     createMesh() {
-        // Create a sleek futuristic racing car
+        // Create a stylized racing car with natural colors
         const group = new THREE.Group();
         
-        // Main body material - glossy with neon glow
+        // Main body material - warm cream/beige
         const bodyMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a1a2e,
-            roughness: 0.2,
-            metalness: 0.9,
+            color: 0xf5e6d3,
+            roughness: 0.4,
+            metalness: 0.3,
         });
         
+        // Accent - warm brown/bronze
         const accentMaterial = new THREE.MeshStandardMaterial({
-            color: 0x00ff88,
-            emissive: 0x00ff88,
-            emissiveIntensity: 0.5,
-            roughness: 0.3,
-            metalness: 0.8
+            color: 0x8b6914,
+            emissive: 0x3d2a08,
+            emissiveIntensity: 0.2,
+            roughness: 0.5,
+            metalness: 0.6
         });
         
         // Lower body - sleek wedge shape
@@ -80,11 +81,11 @@ export class Vehicle {
         const canopyGeo = new THREE.ExtrudeGeometry(canopyShape, { depth: 1.2, bevelEnabled: true, bevelThickness: 0.02 });
         canopyGeo.rotateX(-Math.PI / 2);
         const canopyMaterial = new THREE.MeshStandardMaterial({
-            color: 0x003333,
-            roughness: 0.1,
-            metalness: 0.95,
+            color: 0x3d3428,
+            roughness: 0.15,
+            metalness: 0.6,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.75
         });
         const canopy = new THREE.Mesh(canopyGeo, canopyMaterial);
         canopy.position.set(0, 0.55, -0.3);
@@ -209,22 +210,22 @@ export class Vehicle {
         this.particles = [];
         this.maxParticles = 100;
         
-        // Spark material (bright, additive)
+        // Dirt particle material (brown dust)
         this.sparkMaterial = new THREE.PointsMaterial({
-            color: 0xff8844,
-            size: 0.3,
+            color: 0x8b7355,
+            size: 0.4,
             transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending,
+            opacity: 0.7,
+            blending: THREE.NormalBlending,
             depthWrite: false
         });
         
-        // Smoke material (soft, darker)
+        // Dust cloud material (lighter brown)
         this.smokeMaterial = new THREE.PointsMaterial({
-            color: 0x888888,
-            size: 0.8,
+            color: 0xc4a574,
+            size: 1.0,
             transparent: true,
-            opacity: 0.4,
+            opacity: 0.35,
             blending: THREE.NormalBlending,
             depthWrite: false
         });

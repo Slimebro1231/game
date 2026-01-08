@@ -1,46 +1,49 @@
 /**
- * World - Stylized racing environment with cyberpunk aesthetic
- * Features: Black hole vortex, grid, particles, glow effects
+ * World - Natural racing environment with stylized nature aesthetic
+ * Features: Grass ground, trees, rocks, soft sky
  */
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export class World {
     constructor(game) {
         this.game = game;
         this.scene = game.scene;
         
-        this.isDark = true;
+        this.isDark = false; // Default to light/natural theme
         this.time = 0;
+        this.loadedAssets = {};
+        this.scatteredObjects = [];
+        
+        this.loader = new GLTFLoader();
         
         this.createGround();
-        this.createGrid();
-        this.createStarfield();
-        // this.createVortex(); // Disabled - camera angle doesn't show it well
-        this.createAtmosphere();
-        this.createAmbientParticles();
+        this.createSky();
+        this.loadNatureAssets();
     }
     
     createGround() {
-        // Large ground plane with subtle gradient effect via vertex colors
-        const groundGeometry = new THREE.PlaneGeometry(600, 600, 100, 100);
+        // Large grass ground plane
+        const groundGeometry = new THREE.PlaneGeometry(800, 800, 80, 80);
         
-        // Add vertex colors for radial gradient effect
+        // Add vertex colors for natural gradient
         const colors = [];
         const positions = groundGeometry.attributes.position.array;
         
         for (let i = 0; i < positions.length; i += 3) {
             const x = positions[i];
-            const z = positions[i + 1]; // y in plane coords before rotation
+            const z = positions[i + 1];
             const dist = Math.sqrt(x * x + z * z);
             
-            // Gradient from center to edges
-            const t = Math.min(dist / 300, 1);
+            // Slight variation in grass color
+            const noise = Math.random() * 0.1;
+            const t = Math.min(dist / 400, 1);
             
-            // Dark theme: deep purple to darker purple
-            const r = 0.08 + t * 0.02;
-            const g = 0.08 + t * 0.01;
-            const b = 0.15 + t * 0.05;
+            // Natural grass greens - lighter center, darker edges
+            const r = 0.35 + noise * 0.1 - t * 0.1;
+            const g = 0.55 + noise * 0.15 - t * 0.15;
+            const b = 0.25 + noise * 0.05;
             
             colors.push(r, g, b);
         }
@@ -49,8 +52,8 @@ export class World {
         
         this.groundMaterial = new THREE.MeshStandardMaterial({
             vertexColors: true,
-            roughness: 0.95,
-            metalness: 0.05,
+            roughness: 0.9,
+            metalness: 0.0,
             side: THREE.DoubleSide
         });
         
@@ -61,414 +64,254 @@ export class World {
         this.scene.add(this.ground);
     }
     
-    createGrid() {
-        // Subtle grid lines for visual interest
-        const gridSize = 400;
-        const gridDivisions = 40;
+    createSky() {
+        // Gradient sky dome
+        const skyGeometry = new THREE.SphereGeometry(400, 32, 32);
         
-        this.gridHelper = new THREE.GridHelper(
-            gridSize, 
-            gridDivisions, 
-            0x00ff88, // Center line color
-            0x1a1a2e  // Grid color (subtle)
-        );
-        this.gridHelper.position.y = 0.01;
-        this.gridHelper.material.opacity = 0.15;
-        this.gridHelper.material.transparent = true;
-        this.scene.add(this.gridHelper);
-        
-        // Secondary finer grid
-        this.fineGrid = new THREE.GridHelper(
-            gridSize,
-            gridDivisions * 4,
-            0x00ff88,
-            0x222244
-        );
-        this.fineGrid.position.y = 0.005;
-        this.fineGrid.material.opacity = 0.05;
-        this.fineGrid.material.transparent = true;
-        this.scene.add(this.fineGrid);
-    }
-    
-    createStarfield() {
-        // Create a dome of stars above the track
-        const starCount = 2000;
-        const positions = new Float32Array(starCount * 3);
-        const colors = new Float32Array(starCount * 3);
-        const sizes = new Float32Array(starCount);
-        
-        for (let i = 0; i < starCount; i++) {
-            // Distribute on a hemisphere
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.random() * Math.PI * 0.4; // Only upper hemisphere
-            const radius = 300 + Math.random() * 100;
-            
-            positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-            positions[i * 3 + 1] = radius * Math.cos(phi) + 50; // Offset up
-            positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
-            
-            // Color variation - white to cyan to pink
-            const colorType = Math.random();
-            if (colorType < 0.6) {
-                // White
-                colors[i * 3] = 0.9 + Math.random() * 0.1;
-                colors[i * 3 + 1] = 0.9 + Math.random() * 0.1;
-                colors[i * 3 + 2] = 0.9 + Math.random() * 0.1;
-            } else if (colorType < 0.8) {
-                // Cyan (accent color)
-                colors[i * 3] = 0;
-                colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
-                colors[i * 3 + 2] = 0.5 + Math.random() * 0.3;
-            } else {
-                // Pink/purple
-                colors[i * 3] = 0.8 + Math.random() * 0.2;
-                colors[i * 3 + 1] = 0.3 + Math.random() * 0.3;
-                colors[i * 3 + 2] = 0.8 + Math.random() * 0.2;
-            }
-            
-            // Random sizes with some bright stars
-            sizes[i] = Math.random() < 0.05 ? 2 + Math.random() * 2 : 0.5 + Math.random() * 1;
-        }
-        
-        const starGeometry = new THREE.BufferGeometry();
-        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-        
-        // Custom shader for variable star sizes
-        const starMaterial = new THREE.ShaderMaterial({
+        // Sky gradient shader
+        const skyMaterial = new THREE.ShaderMaterial({
             uniforms: {
-                time: { value: 0 }
+                topColor: { value: new THREE.Color(0x87ceeb) },    // Light blue
+                bottomColor: { value: new THREE.Color(0xf5e6d3) }, // Warm beige horizon
+                offset: { value: 20 },
+                exponent: { value: 0.6 }
             },
             vertexShader: `
-                attribute float size;
-                varying vec3 vColor;
-                uniform float time;
-                
+                varying vec3 vWorldPosition;
                 void main() {
-                    vColor = color;
-                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    
-                    // Twinkle effect
-                    float twinkle = sin(time * 2.0 + position.x * 0.1) * 0.3 + 0.7;
-                    
-                    gl_PointSize = size * twinkle * (200.0 / -mvPosition.z);
-                    gl_Position = projectionMatrix * mvPosition;
+                    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                    vWorldPosition = worldPosition.xyz;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 }
             `,
             fragmentShader: `
-                varying vec3 vColor;
+                uniform vec3 topColor;
+                uniform vec3 bottomColor;
+                uniform float offset;
+                uniform float exponent;
+                varying vec3 vWorldPosition;
                 
                 void main() {
-                    // Circular point with soft edge
-                    float dist = length(gl_PointCoord - vec2(0.5));
-                    if (dist > 0.5) discard;
-                    
-                    float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
-                    gl_FragColor = vec4(vColor, alpha);
+                    float h = normalize(vWorldPosition + offset).y;
+                    gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
                 }
             `,
-            transparent: true,
-            vertexColors: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
+            side: THREE.BackSide
         });
         
-        this.stars = new THREE.Points(starGeometry, starMaterial);
-        this.scene.add(this.stars);
+        this.sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        this.scene.add(this.sky);
+        
+        // Set scene background and fog
+        this.scene.background = new THREE.Color(0xf5e6d3);
+        this.scene.fog = new THREE.Fog(0xf5e6d3, 150, 500);
+        
+        // Directional sunlight
+        this.sunLight = new THREE.DirectionalLight(0xfff5e0, 1.2);
+        this.sunLight.position.set(100, 150, 50);
+        this.sunLight.castShadow = true;
+        this.sunLight.shadow.mapSize.width = 2048;
+        this.sunLight.shadow.mapSize.height = 2048;
+        this.sunLight.shadow.camera.near = 10;
+        this.sunLight.shadow.camera.far = 500;
+        this.sunLight.shadow.camera.left = -200;
+        this.sunLight.shadow.camera.right = 200;
+        this.sunLight.shadow.camera.top = 200;
+        this.sunLight.shadow.camera.bottom = -200;
+        this.scene.add(this.sunLight);
+        
+        // Warm ambient
+        this.ambientLight = new THREE.AmbientLight(0xffeedd, 0.5);
+        this.scene.add(this.ambientLight);
+        
+        // Hemisphere light for natural feel
+        this.hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x7a9c59, 0.4);
+        this.scene.add(this.hemiLight);
     }
     
-    createVortex() {
-        // Cyberpunk black hole / vortex effect in the sky
-        const vortexVertexShader = `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `;
-        
-        const vortexFragmentShader = `
-            uniform float time;
-            uniform vec3 color1;
-            uniform vec3 color2;
-            uniform float isDark;
-            varying vec2 vUv;
-            
-            #define PI 3.14159265359
-            
-            // Noise function
-            float hash(vec2 p) {
-                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-            }
-            
-            float noise(vec2 p) {
-                vec2 i = floor(p);
-                vec2 f = fract(p);
-                f = f * f * (3.0 - 2.0 * f);
-                float a = hash(i);
-                float b = hash(i + vec2(1.0, 0.0));
-                float c = hash(i + vec2(0.0, 1.0));
-                float d = hash(i + vec2(1.0, 1.0));
-                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-            }
-            
-            void main() {
-                vec2 uv = vUv - 0.5;
-                float dist = length(uv);
-                float angle = atan(uv.y, uv.x);
-                
-                // Swirl effect
-                float swirl = angle + dist * 8.0 - time * 0.3;
-                float spiral = sin(swirl * 6.0) * 0.5 + 0.5;
-                
-                // Radial rings
-                float rings = sin(dist * 30.0 - time * 2.0) * 0.5 + 0.5;
-                rings *= smoothstep(0.5, 0.1, dist);
-                
-                // Noise distortion
-                float n = noise(uv * 10.0 + time * 0.5);
-                
-                // Black hole center
-                float hole = smoothstep(0.02, 0.08, dist);
-                
-                // Event horizon glow
-                float horizon = smoothstep(0.15, 0.05, dist) * smoothstep(0.0, 0.05, dist);
-                
-                // Combine effects
-                float pattern = spiral * rings * hole;
-                pattern += horizon * 2.0;
-                pattern *= smoothstep(0.5, 0.2, dist);
-                pattern += n * 0.1 * smoothstep(0.4, 0.1, dist);
-                
-                // Glitch lines (occasional)
-                float glitch = step(0.98, sin(time * 20.0 + uv.y * 100.0));
-                pattern += glitch * 0.3 * step(0.5, sin(time * 3.0));
-                
-                // Color mixing
-                vec3 col = mix(color1, color2, pattern);
-                col += horizon * color2 * 3.0;
-                
-                // Fade at edges
-                float alpha = smoothstep(0.5, 0.3, dist) * 0.6 * isDark;
-                
-                gl_FragColor = vec4(col, alpha * pattern);
-            }
-        `;
-        
-        this.vortexMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0 },
-                color1: { value: new THREE.Color(0x0a0a15) },
-                color2: { value: new THREE.Color(0x00ff88) },
-                isDark: { value: 1.0 }
-            },
-            vertexShader: vortexVertexShader,
-            fragmentShader: vortexFragmentShader,
-            transparent: true,
-            side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-        
-        // Large plane in the sky
-        const vortexGeometry = new THREE.PlaneGeometry(400, 400);
-        this.vortex = new THREE.Mesh(vortexGeometry, this.vortexMaterial);
-        this.vortex.position.set(0, 80, 0);
-        this.vortex.rotation.x = -Math.PI / 2;
-        this.scene.add(this.vortex);
-        
-        // Secondary smaller vortex rings
-        for (let i = 0; i < 3; i++) {
-            const ringGeometry = new THREE.RingGeometry(50 + i * 30, 55 + i * 30, 64);
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0x00ff88,
-                transparent: true,
-                opacity: 0.05 - i * 0.01,
-                side: THREE.DoubleSide,
-                blending: THREE.AdditiveBlending
-            });
-            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-            ring.position.set(0, 75 - i * 5, 0);
-            ring.rotation.x = -Math.PI / 2;
-            ring.userData.rotationSpeed = 0.1 + i * 0.05;
-            ring.userData.ringIndex = i;
-            this.scene.add(ring);
-            if (!this.vortexRings) this.vortexRings = [];
-            this.vortexRings.push(ring);
-        }
-    }
-    
-    createAtmosphere() {
-        // Ambient glow spheres at far corners
-        const glowMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00ff88,
-            transparent: true,
-            opacity: 0.03
-        });
-        
-        const glowPositions = [
-            [150, 20, 150],
-            [-150, 20, 150],
-            [150, 20, -150],
-            [-150, 20, -150],
+    async loadNatureAssets() {
+        // Asset types to load
+        const assetDefs = [
+            { name: 'tree1', path: '/models/CommonTree_1.gltf', count: 25, scale: 3.5 },
+            { name: 'tree2', path: '/models/CommonTree_2.gltf', count: 20, scale: 3.5 },
+            { name: 'tree3', path: '/models/CommonTree_3.gltf', count: 15, scale: 3.0 },
+            { name: 'pine1', path: '/models/Pine_1.gltf', count: 20, scale: 4.0 },
+            { name: 'pine2', path: '/models/Pine_2.gltf', count: 15, scale: 3.5 },
+            { name: 'rock1', path: '/models/Rock_Medium_1.gltf', count: 30, scale: 1.5 },
+            { name: 'rock2', path: '/models/Rock_Medium_2.gltf', count: 25, scale: 1.2 },
+            { name: 'rock3', path: '/models/Rock_Medium_3.gltf', count: 20, scale: 1.0 },
+            { name: 'bush1', path: '/models/Bush_Common.gltf', count: 40, scale: 2.0 },
+            { name: 'bush2', path: '/models/Bush_Common_Flowers.gltf', count: 30, scale: 2.0 },
         ];
         
-        this.glowSpheres = [];
-        glowPositions.forEach(pos => {
-            const sphere = new THREE.Mesh(
-                new THREE.SphereGeometry(40, 16, 16),
-                glowMaterial.clone()
-            );
-            sphere.position.set(pos[0], pos[1], pos[2]);
-            this.scene.add(sphere);
-            this.glowSpheres.push(sphere);
-        });
-        
-        // Horizon glow ring
-        const ringGeometry = new THREE.TorusGeometry(250, 2, 8, 64);
-        this.horizonRing = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({
-            color: 0x00ff88,
-            transparent: true,
-            opacity: 0.1
-        }));
-        this.horizonRing.rotation.x = Math.PI / 2;
-        this.horizonRing.position.y = 0.5;
-        this.scene.add(this.horizonRing);
-    }
-    
-    createAmbientParticles() {
-        // Floating particles for atmosphere
-        const particleCount = 200;
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-        
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * 300;
-            positions[i * 3 + 1] = Math.random() * 50 + 5;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 300;
-            
-            // Green-cyan color variation
-            colors[i * 3] = 0;
-            colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
-            colors[i * 3 + 2] = 0.5 + Math.random() * 0.3;
+        // Load all assets
+        for (const def of assetDefs) {
+            try {
+                const gltf = await this.loadAsset(def.path);
+                if (gltf) {
+                    this.loadedAssets[def.name] = { 
+                        scene: gltf.scene, 
+                        count: def.count, 
+                        scale: def.scale 
+                    };
+                }
+            } catch (e) {
+                console.warn(`Could not load ${def.name}:`, e.message);
+            }
         }
         
-        const particleGeometry = new THREE.BufferGeometry();
-        particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        
-        const particleMaterial = new THREE.PointsMaterial({
-            size: 0.5,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.6,
-            blending: THREE.AdditiveBlending
+        // Scatter assets around the track
+        this.scatterNatureObjects();
+    }
+    
+    loadAsset(path) {
+        return new Promise((resolve, reject) => {
+            this.loader.load(
+                path,
+                (gltf) => resolve(gltf),
+                undefined,
+                (error) => reject(error)
+            );
         });
+    }
+    
+    scatterNatureObjects() {
+        const trackPath = this.game.track?.trackPath || [];
+        const trackWidth = this.game.track?.trackWidth || 10;
         
-        this.particles = new THREE.Points(particleGeometry, particleMaterial);
-        this.scene.add(this.particles);
+        // Calculate bounding box of track
+        let minX = Infinity, maxX = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
         
-        this.particlePositions = positions;
+        for (const point of trackPath) {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minZ = Math.min(minZ, point.z);
+            maxZ = Math.max(maxZ, point.z);
+        }
+        
+        // Expand bounds for scenery
+        const padding = 80;
+        minX -= padding; maxX += padding;
+        minZ -= padding; maxZ += padding;
+        
+        // Place each asset type
+        for (const [name, asset] of Object.entries(this.loadedAssets)) {
+            for (let i = 0; i < asset.count; i++) {
+                // Random position
+                let x, z, attempts = 0;
+                let validPosition = false;
+                
+                while (!validPosition && attempts < 20) {
+                    x = minX + Math.random() * (maxX - minX);
+                    z = minZ + Math.random() * (maxZ - minZ);
+                    
+                    // Check distance from track
+                    let minDistToTrack = Infinity;
+                    for (const point of trackPath) {
+                        const dist = Math.sqrt((x - point.x) ** 2 + (z - point.z) ** 2);
+                        minDistToTrack = Math.min(minDistToTrack, dist);
+                    }
+                    
+                    // Trees/bushes should be away from track, rocks can be closer
+                    const minDist = name.includes('rock') ? trackWidth * 0.8 : trackWidth * 1.5;
+                    
+                    if (minDistToTrack > minDist) {
+                        validPosition = true;
+                    }
+                    attempts++;
+                }
+                
+                if (validPosition) {
+                    const clone = asset.scene.clone();
+                    
+                    // Random scale variation
+                    const scaleVar = asset.scale * (0.7 + Math.random() * 0.6);
+                    clone.scale.set(scaleVar, scaleVar, scaleVar);
+                    
+                    // Random rotation
+                    clone.rotation.y = Math.random() * Math.PI * 2;
+                    
+                    // Position
+                    clone.position.set(x, 0, z);
+                    
+                    // Enable shadows
+                    clone.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    this.scene.add(clone);
+                    this.scatteredObjects.push(clone);
+                }
+            }
+        }
+        
+        console.log(`Scattered ${this.scatteredObjects.length} nature objects`);
     }
     
     updateTheme(isDark) {
         this.isDark = isDark;
         
         if (isDark) {
-            // Dark theme - deep space feel
-            this.scene.background = new THREE.Color(0x0a0a15);
-            this.scene.fog = new THREE.Fog(0x0a0a15, 80, 300);
+            // Dusk/evening theme
+            this.scene.background = new THREE.Color(0x2a2820);
+            this.scene.fog = new THREE.Fog(0x2a2820, 100, 400);
             
-            this.gridHelper.material.opacity = 0.15;
-            this.fineGrid.material.opacity = 0.05;
+            this.sky.material.uniforms.topColor.value.setHex(0x1a1a2e);
+            this.sky.material.uniforms.bottomColor.value.setHex(0x3d3428);
             
-            this.glowSpheres.forEach(s => {
-                s.material.color.setHex(0x00ff88);
-                s.material.opacity = 0.03;
-            });
-            this.horizonRing.material.color.setHex(0x00ff88);
-            this.horizonRing.material.opacity = 0.1;
-            
-            // Vortex colors for dark theme
-            if (this.vortexMaterial) {
-                this.vortexMaterial.uniforms.color1.value.setHex(0x0a0a15);
-                this.vortexMaterial.uniforms.color2.value.setHex(0x00ff88);
-                this.vortexMaterial.uniforms.isDark.value = 1.0;
-            }
-            if (this.vortexRings) {
-                this.vortexRings.forEach(r => r.material.color.setHex(0x00ff88));
-            }
+            this.sunLight.intensity = 0.4;
+            this.sunLight.color.setHex(0xffd4a0);
+            this.ambientLight.intensity = 0.2;
+            this.hemiLight.intensity = 0.2;
             
         } else {
-            // Light theme - clean white/pink aesthetic
-            this.scene.background = new THREE.Color(0xfff5f5);
-            this.scene.fog = new THREE.Fog(0xfff5f5, 100, 350);
+            // Bright daytime
+            this.scene.background = new THREE.Color(0xf5e6d3);
+            this.scene.fog = new THREE.Fog(0xf5e6d3, 150, 500);
             
-            this.gridHelper.material.opacity = 0.1;
-            this.gridHelper.material.color.setHex(0xff6b9d);
-            this.fineGrid.material.opacity = 0.03;
-            this.fineGrid.material.color.setHex(0xff6b9d);
+            this.sky.material.uniforms.topColor.value.setHex(0x87ceeb);
+            this.sky.material.uniforms.bottomColor.value.setHex(0xf5e6d3);
             
-            this.glowSpheres.forEach(s => {
-                s.material.color.setHex(0xff6b9d);
-                s.material.opacity = 0.02;
+            this.sunLight.intensity = 1.2;
+            this.sunLight.color.setHex(0xfff5e0);
+            this.ambientLight.intensity = 0.5;
+            this.hemiLight.intensity = 0.4;
+        }
+    }
+    
+    // Clear scattered objects (for map switching)
+    clearScatteredObjects() {
+        for (const obj of this.scatteredObjects) {
+            this.scene.remove(obj);
+            obj.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
             });
-            this.horizonRing.material.color.setHex(0xff6b9d);
-            this.horizonRing.material.opacity = 0.08;
-            
-            // Vortex colors for light theme (subtle pink)
-            if (this.vortexMaterial) {
-                this.vortexMaterial.uniforms.color1.value.setHex(0xfff5f5);
-                this.vortexMaterial.uniforms.color2.value.setHex(0xff6b9d);
-                this.vortexMaterial.uniforms.isDark.value = 0.4;
-            }
-            if (this.vortexRings) {
-                this.vortexRings.forEach(r => r.material.color.setHex(0xff6b9d));
-            }
+        }
+        this.scatteredObjects = [];
+    }
+    
+    // Re-scatter for new map
+    rescatter() {
+        this.clearScatteredObjects();
+        if (Object.keys(this.loadedAssets).length > 0) {
+            this.scatterNatureObjects();
         }
     }
     
     update(delta) {
         this.time += delta;
         
-        // Animate starfield twinkle
-        if (this.stars && this.stars.material.uniforms) {
-            this.stars.material.uniforms.time.value = this.time;
-        }
-        
-        // Animate vortex shader
-        if (this.vortexMaterial) {
-            this.vortexMaterial.uniforms.time.value = this.time;
-        }
-        
-        // Rotate vortex rings
-        if (this.vortexRings) {
-            this.vortexRings.forEach((ring, i) => {
-                ring.rotation.z += delta * ring.userData.rotationSpeed * (i % 2 === 0 ? 1 : -1);
-            });
-        }
-        
-        // Animate particles slowly floating
-        if (this.particles && this.particlePositions) {
-            const positions = this.particles.geometry.attributes.position.array;
-            for (let i = 0; i < positions.length; i += 3) {
-                positions[i + 1] += Math.sin(this.time + i) * 0.01;
-                
-                // Wrap around
-                if (positions[i + 1] > 55) positions[i + 1] = 5;
-                if (positions[i + 1] < 5) positions[i + 1] = 55;
-            }
-            this.particles.geometry.attributes.position.needsUpdate = true;
-        }
-        
-        // Pulse glow spheres
-        this.glowSpheres.forEach((sphere, i) => {
-            const pulse = Math.sin(this.time * 0.5 + i) * 0.01 + 0.03;
-            sphere.material.opacity = this.isDark ? pulse : pulse * 0.5;
-        });
-        
-        // Rotate horizon ring slowly
-        this.horizonRing.rotation.z += delta * 0.02;
+        // Subtle wind sway could be added for trees here if desired
     }
 }
