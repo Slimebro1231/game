@@ -4,8 +4,8 @@
  */
 
 import * as THREE from 'three';
-import { ghostRecorder } from '../core/InputRecorder.js';
 import { firebaseService } from '../core/FirebaseService.js';
+import { ghostRecorder } from '../core/InputRecorder.js';
 
 export class GhostManager {
     constructor(game) {
