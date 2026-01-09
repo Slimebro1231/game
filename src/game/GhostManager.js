@@ -85,8 +85,8 @@ export class GhostManager {
         this.ghostMeshes = [];
         this.ghosts = [];
         
-        // Use personal bests for ghosts (player races against their own times)
-        const ghostsToShow = this.personalBests.slice(0, this.maxGhosts);
+        // Use global leaderboard for ghosts (race against top players)
+        const ghostsToShow = this.globalLeaderboard.slice(0, this.maxGhosts);
         
         ghostsToShow.forEach((ghostData, index) => {
             // Decode snapshots
@@ -96,10 +96,10 @@ export class GhostManager {
                 return;
             }
             
-            console.log(`Personal Ghost ${index + 1}: ${snapshots.length} snapshots, time: ${(ghostData.time / 1000).toFixed(2)}s`);
+            console.log(`Global Ghost ${index + 1} (${ghostData.name}): ${snapshots.length} snapshots, time: ${(ghostData.time / 1000).toFixed(2)}s`);
             
             const mesh = this.createGhostMesh(index);
-            mesh.userData.name = 'PB #' + (index + 1);
+            mesh.userData.name = ghostData.name || '#' + (index + 1);
             mesh.userData.time = ghostData.time;
             this.ghostMeshes.push(mesh);
             this.scene.add(mesh);
@@ -111,14 +111,14 @@ export class GhostManager {
             });
         });
         
-        console.log(`Created ${this.ghosts.length} personal ghost(s)`);
+        console.log(`Created ${this.ghosts.length} global ghost(s)`);
     }
     
     createGhostMesh(index) {
         const group = new THREE.Group();
         
-        // Personal best colors - shades of blue/purple
-        const colors = [0x4488ff, 0x6666ff, 0x8844ff, 0xaa44ff, 0xcc44ff];
+        // Global leaderboard colors - gold, silver, bronze, then shades
+        const colors = [0xffd700, 0xc0c0c0, 0xcd7f32, 0x88aaff, 0xaa88ff];
         const color = new THREE.Color(colors[index] || 0x8888ff);
         
         const material = new THREE.MeshStandardMaterial({
