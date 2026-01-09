@@ -47,7 +47,7 @@ export class FirebaseService {
             // Query by mapId, order by time, limit to 10
             const q = query(
                 leaderboardRef, 
-                where('mapId', '==', mapId),
+                where('mapID', '==', mapId),
                 orderBy('time', 'asc'), 
                 limit(10)
             );
@@ -94,7 +94,7 @@ export class FirebaseService {
                 time: time,
                 inputs: encodedData,
                 checksum: checksum,
-                mapId: mapId,
+                mapID: mapId,
                 timestamp: Date.now()
             });
             
@@ -131,7 +131,7 @@ export class FirebaseService {
         
         try {
             const leaderboardRef = collection(db, 'leaderboard');
-            const q = query(leaderboardRef, where('mapId', '==', mapId));
+            const q = query(leaderboardRef, where('mapID', '==', mapId));
             const snapshot = await getDocs(q);
             
             let deleted = 0;
